@@ -214,3 +214,14 @@ Finish riddle 3: probe limits, better probes, one-tap explanation, decision reco
 Show marks and durability in index.html, add a hint button, and serve variants.
 Add more questions, variants and skills through the Upload endpoints.
 Real student login and class management, then deploy (Render / Railway) with PostgreSQL.
+
+<img width="1166" height="1078" alt="image" src="https://github.com/user-attachments/assets/7d7dca99-d34a-4550-a070-d2d0488c0393" />
+Here’s the whole workflow, from one answer to the teacher’s decision.
+
+<img width="1266" height="846" alt="image" src="https://github.com/user-attachments/assets/4e140e9e-6d64-4620-8443-e1f19f21a727" />
+The second chart opens up the “Engine gives a story” box. It shows how one answer becomes one of seven stories.
+
+The probe loop is simpler than the chart might suggest. Today a probe answered right resolves to missed_condition whatever confidence the learner tagged. That is the riddle 3 gap I listed earlier.
+Durability isn’t visible in the web page yet. The checks and verdicts run in the API only, so a live demo needs the /docs page.
+
+
