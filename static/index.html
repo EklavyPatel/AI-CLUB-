@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond the Number - Eklavy & Keshav</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen" x-data="app()">
+    <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="bg-indigo-600 px-3 py-1 rounded-lg font-bold text-sm tracking-wide">V2.0</span>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight">Beyond the Number</h1>
+                    <p class="text-xs text-indigo-300">By Eklavy & Keshav | Diagnostic Assessment Platform</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button @click="activeTab = 'quiz'; loadSkills(); loadQuiz();" :class="activeTab === 'quiz' ? 'bg-indigo-600 font-semibold' : 'hover:bg-indigo-800 text-indigo-200'" class="px-4 py-2 rounded-lg text-sm transition">Student Quiz</button>
+                <button @click="activeTab = 'profile'; loadProfile();" :class="activeTab === 'profile' ? 'bg-indigo-600 font-semibold' : 'hover:bg-indigo-800 text-indigo-200'" class="px-4 py-2 rounded-lg text-sm transition">Learner Profile</button>
+                <button @click="activeTab = 'teacher'; loadSkills(); loadTeacherHeatmap();" :class="activeTab === 'teacher' ? 'bg-indigo-600 font-semibold' : 'hover:bg-indigo-800 text-indigo-200'" class="px-4 py-2 rounded-lg text-sm transition">Teacher Analytics & Graphs</button>
+                <button @click="activeTab = 'upload';" :class="activeTab === 'upload' ? 'bg-indigo-600 font-semibold' : 'hover:bg-indigo-800 text-indigo-200'" class="px-4 py-2 rounded-lg text-sm transition">Upload Questions</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8">
+        <div class="mb-6 bg-white border border-indigo-100 p-4 rounded-xl shadow-sm flex justify-between items-center">
+            <div>
+                <h2 class="font-bold text-indigo-950">System Setup & Question Bank</h2>
+                <p class="text-sm text-slate-600">Authors: <span class="font-bold text-indigo-700">Eklavy & Keshav</span>. Seed sample data or upload custom JSON question banks.</p>
+            </div>
+            <button @click="seedData()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg shadow transition text-sm">
+                Seed Data & Student Cohort
+            </button>
+        </div>
+
+        <!-- Student Quiz Tab -->
+        <section x-show="activeTab === 'quiz'" class="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Student Quiz Module</h2>
+                    <p class="text-sm text-slate-500">Answer each question and submit your 1-tap confidence rating.</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Select Skill / Topic</label>
+                        <select x-model="selectedSkill" @change="loadQuiz()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white font-semibold">
+                            <template x-for="s in availableSkills" :key="s">
+                                <option :value="s" x-text="s"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Learner ID</label>
+                        <input type="text" x-model="learnerId" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <template x-if="questions.length === 0">
+                <div class="text-center py-16 text-slate-500">
+                    <p class="text-lg">No questions found for skill: <span class="font-bold" x-text="selectedSkill"></span></p>
+                    <button @click="seedData(); loadQuiz();" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">Seed Questions & Retry</button>
+                </div>
+            </template>
+
+            <template x-if="questions.length > 0 && currentQuestionIndex < questions.length">
+                <div>
+                    <div class="mb-6 flex justify-between items-center text-sm font-medium text-slate-500">
+                        <span>Question <span x-text="currentQuestionIndex + 1"></span> of <span x-text="questions.length"></span></span>
+                        <span class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold" x-text="'Skill: ' + selectedSkill"></span>
+                    </div>
+
+                    <h3 class="text-lg font-semibold text-slate-900 mb-6" x-text="questions[currentQuestionIndex].stem"></h3>
+
+                    <div class="space-y-3 mb-8">
+                        <template x-for="opt in questions[currentQuestionIndex].options" :key="opt.id">
+                            <label @click="selectedOption = opt.id" :class="selectedOption === opt.id ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500' : 'border-slate-200 hover:bg-slate-50'" class="flex items-center p-4 border rounded-xl cursor-pointer transition">
+                                <input type="radio" name="quiz_option" :value="opt.id" x-model="selectedOption" class="hidden">
+                                <span class="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center font-bold text-sm mr-4" :class="selectedOption === opt.id ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-600'" x-text="opt.id"></span>
+                                <span class="text-slate-800 font-medium" x-text="opt.text"></span>
+                            </label>
+                        </template>
+                    </div>
+
+                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                        <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">1-Tap Confidence Tag (Required)</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <button @click="confidence = 'Sure'" :class="confidence === 'Sure' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'" class="py-3 rounded-lg font-bold transition">🟢 Sure</button>
+                            <button @click="confidence = 'Unsure'" :class="confidence === 'Unsure' ? 'bg-amber-500 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'" class="py-3 rounded-lg font-bold transition">🟡 Unsure</button>
+                            <button @click="confidence = 'Guessing'" :class="confidence === 'Guessing' ? 'bg-rose-600 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'" class="py-3 rounded-lg font-bold transition">🔴 Guessing</button>
+                        </div>
+                    </div>
+
+                    <button @click="submitAnswer()" :disabled="!selectedOption || !confidence" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold py-4 rounded-xl shadow-lg transition">
+                        Submit Answer & Continue
+                    </button>
+                </div>
+            </template>
+
+            <template x-if="questions.length > 0 && currentQuestionIndex >= questions.length">
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold">✓</div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-2">Quiz Completed!</h3>
+                    <p class="text-slate-600 mb-6">Your responses have been processed through the diagnostic matrix.</p>
+                    <button @click="activeTab = 'profile'; loadProfile();" class="bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow">
+                        View Diagnostic Profile
+                    </button>
+                </div>
+            </template>
+        </section>
+
+        <!-- Probe Modal -->
+        <div x-show="showProbeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl max-w-xl w-full p-8 shadow-2xl border border-indigo-100">
+                <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase">Diagnostic Probe Triggered</span>
+                <h3 class="text-xl font-bold text-slate-900 mt-4 mb-2">Let's verify your reasoning</h3>
+                <p class="text-slate-600 text-sm mb-6">You answered incorrectly while feeling confident. Please answer this reworded probe to verify if this is an execution slip or a deep misconception.</p>
+                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 mb-6 font-medium text-indigo-950" x-text="probeData?.stem"></div>
+                <div class="space-y-3 mb-6">
+                    <template x-for="opt in probeData?.options" :key="opt.id">
+                        <label @click="probeSelectedOption = opt.id" :class="probeSelectedOption === opt.id ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-500' : 'border-slate-200 hover:bg-slate-50'" class="flex items-center p-3 border rounded-xl cursor-pointer transition">
+                            <input type="radio" name="probe_option" :value="opt.id" x-model="probeSelectedOption" class="hidden">
+                            <span class="w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center font-bold text-xs mr-3" :class="probeSelectedOption === opt.id ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-600'" x-text="opt.id"></span>
+                            <span class="text-slate-800 text-sm font-medium" x-text="opt.text"></span>
+                        </label>
+                    </template>
+                </div>
+                <button @click="submitProbe()" :disabled="!probeSelectedOption" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl transition">
+                    Submit Probe Answer
+                </button>
+            </div>
+        </div>
+
+        <!-- Learner Profile Tab -->
+        <section x-show="activeTab === 'profile'" class="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-slate-800">Learner Profile View</h2>
+                <button @click="loadProfile()" class="text-indigo-600 font-semibold text-sm hover:underline">Refresh Profile</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-slate-50 p-6 rounded-xl border">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Learner ID</span>
+                    <div class="text-lg font-bold text-slate-800 mt-1" x-text="learnerId"></div>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Skill Assessed</span>
+                    <div class="text-lg font-bold text-indigo-600 mt-1" x-text="selectedSkill"></div>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Cognitive State</span>
+                    <div class="text-lg font-bold mt-1" :class="{
+                        'text-emerald-600': profileData.state === 'Secure',
+                        'text-amber-600': profileData.state === 'Lucky / Fragile',
+                        'text-blue-600': profileData.state === 'Careless Slip',
+                        'text-rose-600': profileData.state === 'Deep Misconception'
+                    }" x-text="profileData.state"></div>
+                </div>
+            </div>
+            <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-6 mb-6">
+                <h3 class="font-bold text-indigo-950 mb-2">Prescriptive Instructional Action</h3>
+                <p class="text-slate-700 text-sm" x-text="getPrescription(profileData.state)"></p>
+            </div>
+            <template x-if="profileData.evidence_needed">
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-amber-950 mb-1">Evidence still needed before choosing a story</h3>
+                    <p class="text-amber-900 text-sm" x-text="profileData.evidence_needed"></p>
+                </div>
+            </template>
+            <template x-if="profileData.stories && Object.keys(profileData.stories).length">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-slate-800 mb-3">Stories behind each answer</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="(count, story) in profileData.stories" :key="story">
+                            <span class="px-3 py-1 rounded-full bg-white border border-slate-300 text-xs font-semibold text-slate-700" x-text="story.replaceAll('_', ' ') + ': ' + count"></span>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <template x-if="profileData.dominant_misconception">
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-6">
+                    <h3 class="font-bold text-rose-950 mb-1">Detected Misconception</h3>
+                    <p class="text-rose-800 font-mono text-sm mb-2" x-text="profileData.dominant_misconception"></p>
+                    <p class="text-rose-900 text-sm mb-2" x-text="profileData.misconception_description"></p>
+                    <p class="text-rose-900 text-sm"><span class="font-bold">Suggested fix:</span> <span x-text="profileData.remediation"></span></p>
+                </div>
+            </template>
+        </section>
+
+        <!-- Teacher Analytics Tab -->
+        <section x-show="activeTab === 'teacher'" class="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Teacher Analytics & Student Graphs</h2>
+                    <p class="text-sm text-slate-500">Created by Eklavy & Keshav | Real-time cognitive distribution & misconception heatmaps.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <select x-model="selectedSkill" @change="loadTeacherHeatmap()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white font-semibold">
+                        <template x-for="s in availableSkills" :key="s">
+                            <option :value="s" x-text="s"></option>
+                        </template>
+                    </select>
+                    <button @click="loadTeacherHeatmap()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Refresh Graphs</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+                    <span class="text-xs font-bold text-emerald-800 uppercase block mb-1">Secure</span>
+                    <span class="text-3xl font-black text-emerald-700" x-text="heatmapData.state_distribution?.['Secure'] || 0"></span>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl text-center">
+                    <span class="text-xs font-bold text-amber-800 uppercase block mb-1">Lucky / Fragile</span>
+                    <span class="text-3xl font-black text-amber-700" x-text="heatmapData.state_distribution?.['Lucky / Fragile'] || 0"></span>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center">
+                    <span class="text-xs font-bold text-blue-800 uppercase block mb-1">Careless Slip</span>
+                    <span class="text-3xl font-black text-blue-700" x-text="heatmapData.state_distribution?.['Careless Slip'] || 0"></span>
+                </div>
+                <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl text-center">
+                    <span class="text-xs font-bold text-rose-800 uppercase block mb-1">Deep Misconception</span>
+                    <span class="text-3xl font-black text-rose-700" x-text="heatmapData.state_distribution?.['Deep Misconception'] || 0"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div class="border rounded-2xl p-6 bg-slate-50/50 shadow-sm">
+                    <h3 class="font-bold text-slate-800 mb-4 text-center">Cognitive State Distribution Chart</h3>
+                    <div class="h-64 flex justify-center items-center"><canvas id="stateChart"></canvas></div>
+                </div>
+                <div class="border rounded-2xl p-6 bg-slate-50/50 shadow-sm">
+                    <h3 class="font-bold text-slate-800 mb-4 text-center">Class Misconception Frequency Chart</h3>
+                    <div class="h-64 flex justify-center items-center"><canvas id="misconceptionChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="border rounded-xl p-6 bg-white">
+                <h3 class="font-bold text-slate-800 mb-4">Class Student Roster & State Diagnostics</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs uppercase font-bold border-b">
+                                <th class="p-3">Student ID</th>
+                                <th class="p-3">Cognitive State</th>
+                                <th class="p-3">Dominant Misconception</th>
+                                <th class="p-3">Evidence Count</th>
+                                <th class="p-3">Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm">
+                            <template x-for="st in heatmapData.students || []" :key="st.learner_id">
+                                <tr class="hover:bg-slate-50">
+                                    <td class="p-3 font-semibold text-slate-800" x-text="st.learner_id"></td>
+                                    <td class="p-3">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-bold" :class="{
+                                            'bg-emerald-100 text-emerald-800': st.state === 'Secure',
+                                            'bg-amber-100 text-amber-800': st.state === 'Lucky / Fragile',
+                                            'bg-blue-100 text-blue-800': st.state === 'Careless Slip',
+                                            'bg-rose-100 text-rose-800': st.state === 'Deep Misconception'
+                                        }" x-text="st.state"></span>
+                                    </td>
+                                    <td class="p-3 font-mono text-xs text-rose-700" x-text="st.dominant_misconception"></td>
+                                    <td class="p-3 text-slate-600" x-text="st.evidence_count + ' items'"></td>
+                                    <td class="p-3 text-slate-500 text-xs" x-text="st.updated_at"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Question Upload Tab -->
+        <section x-show="activeTab === 'upload'" class="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+            <div class="mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-slate-800">Question Bank Uploader</h2>
+                <p class="text-sm text-slate-500">Teachers can upload JSON formatted misconception-coded questions directly into the database.</p>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-slate-700 mb-2">Paste Question Bank JSON Array:</label>
+                <textarea x-model="jsonUploadText" rows="12" class="w-full font-mono text-xs p-4 border rounded-xl bg-slate-900 text-emerald-400 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+            <div class="flex space-x-4">
+                <button @click="uploadQuestionBank()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl shadow transition">Upload & Commit Question Bank</button>
+                <button @click="jsonUploadText = sampleJsonTemplate" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-6 py-3 rounded-xl transition">Load Sample JSON Template</button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="max-w-6xl mx-auto px-6 py-6 text-center text-xs text-slate-400">
+        Beyond the Number Diagnostic Framework | Designed & Developed by Eklavy & Keshav
+    </footer>
+
+    <script>
+        let stateChartInstance = null;
+        let misconceptionChartInstance = null;
+
+        function app() {
+            return {
+                activeTab: 'quiz',
+                learnerId: 'student_alex_' + Math.floor(Math.random() * 1000),
+                selectedSkill: 'python_recursion',
+                availableSkills: ['python_recursion'],
+                questions: [],
+                currentQuestionIndex: 0,
+                selectedOption: null,
+                confidence: null,
+                startTime: Date.now(),
+                showProbeModal: false,
+                probeData: null,
+                probeSelectedOption: null,
+                activeParentItemId: null,
+                profileData: { state: 'Unassessed', dominant_misconception: null, stories: {}, evidence_needed: null },
+                heatmapData: {},
+                jsonUploadText: '',
+
+                sampleJsonTemplate: JSON.stringify([
+                    {
+                        "item_id": "calc_1",
+                        "skill_id": "calculus_derivatives",
+                        "stem": "What is the derivative of f(x) = x^3?",
+                        "options": [
+                            {"id": "A", "text": "3x^2", "is_correct": true, "misconception_code": null},
+                            {"id": "B", "text": "3x", "is_correct": false, "misconception_code": "forgetting_power_decrement"},
+                            {"id": "C", "text": "x^2", "is_correct": false, "misconception_code": "omitting_coefficient"}
+                        ],
+                        "is_probe": false,
+                        "parent_item_id": null,
+                        "expected_time_s": 30
+                    },
+                    {
+                        "item_id": "calc_1_probe",
+                        "skill_id": "calculus_derivatives",
+                        "stem": "[Reworded Probe] Differentiate g(x) = x^4 with respect to x.",
+                        "options": [
+                            {"id": "A", "text": "4x^3", "is_correct": true, "misconception_code": null},
+                            {"id": "B", "text": "4x", "is_correct": false, "misconception_code": "forgetting_power_decrement"}
+                        ],
+                        "is_probe": true,
+                        "parent_item_id": "calc_1"
+                    }
+                ], null, 2),
+
+                async seedData() {
+                    const res = await fetch('/api/seed', { method: 'POST' });
+                    const data = await res.json();
+                    alert(data.message);
+                    await this.loadSkills();
+                    this.loadQuiz();
+                },
+
+                async loadSkills() {
+                    const res = await fetch('/api/skills');
+                    const skills = await res.json();
+                    if (skills.length > 0) {
+                        this.availableSkills = skills;
+                        if (!skills.includes(this.selectedSkill)) {
+                            this.selectedSkill = skills[0];
+                        }
+                    }
+                },
+
+                async loadQuiz() {
+                    const res = await fetch(`/api/items/${this.selectedSkill}`);
+                    this.questions = await res.json();
+                    this.currentQuestionIndex = 0;
+                    this.selectedOption = null;
+                    this.confidence = null;
+                    this.startTime = Date.now();
+                },
+
+                async submitAnswer() {
+                    const timeMs = Date.now() - this.startTime;
+                    const q = this.questions[this.currentQuestionIndex];
+                    const payload = {
+                        learner_id: this.learnerId,
+                        item_id: q.item_id,
+                        skill_id: this.selectedSkill,
+                        chosen_option: this.selectedOption,
+                        confidence: this.confidence,
+                        time_ms: timeMs,
+                        is_probe: false
+                    };
+                    const res = await fetch('/api/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (data.trigger_probe && data.probe_item) {
+                        this.activeParentItemId = q.item_id;
+                        this.probeData = data.probe_item;
+                        this.showProbeModal = true;
+                    } else {
+                        this.nextQuestion();
+                    }
+                },
+
+                async submitProbe() {
+                    const timeMs = Date.now() - this.startTime;
+                    const payload = {
+                        learner_id: this.learnerId,
+                        item_id: this.probeData.item_id,
+                        skill_id: this.selectedSkill,
+                        chosen_option: this.probeSelectedOption,
+                        confidence: 'Sure',
+                        time_ms: timeMs,
+                        is_probe: true,
+                        parent_item_id: this.activeParentItemId
+                    };
+                    await fetch('/api/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    this.showProbeModal = false;
+                    this.probeSelectedOption = null;
+                    this.probeData = null;
+                    this.nextQuestion();
+                },
+
+                nextQuestion() {
+                    this.selectedOption = null;
+                    this.confidence = null;
+                    this.startTime = Date.now();
+                    this.currentQuestionIndex++;
+                },
+
+                async loadProfile() {
+                    const res = await fetch(`/api/profile/${this.learnerId}/${this.selectedSkill}`);
+                    this.profileData = await res.json();
+                },
+
+                async loadTeacherHeatmap() {
+                    const res = await fetch(`/api/teacher/heatmap/${this.selectedSkill}`);
+                    this.heatmapData = await res.json();
+                    this.renderCharts();
+                },
+
+                renderCharts() {
+                    this.$nextTick(() => {
+                        const stateCtx = document.getElementById('stateChart')?.getContext('2d');
+                        if (stateCtx) {
+                            if (stateChartInstance) stateChartInstance.destroy();
+                            const dist = this.heatmapData.state_distribution || {};
+                            stateChartInstance = new Chart(stateCtx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: ['Secure', 'Lucky / Fragile', 'Careless Slip', 'Deep Misconception'],
+                                    datasets: [{
+                                        data: [dist['Secure'] || 0, dist['Lucky / Fragile'] || 0, dist['Careless Slip'] || 0, dist['Deep Misconception'] || 0],
+                                        backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#f43f5e']
+                                    }]
+                                },
+                                options: { responsive: true, maintainAspectRatio: false }
+                            });
+                        }
+
+                        const miscCtx = document.getElementById('misconceptionChart')?.getContext('2d');
+                        if (miscCtx) {
+                            if (misconceptionChartInstance) misconceptionChartInstance.destroy();
+                            const heatmap = this.heatmapData.misconception_heatmap || {};
+                            const labels = Object.keys(heatmap);
+                            const values = Object.values(heatmap);
+                            misconceptionChartInstance = new Chart(miscCtx, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels.length > 0 ? labels : ['None Detected'],
+                                    datasets: [{
+                                        label: 'Affected Students',
+                                        data: values.length > 0 ? values : [0],
+                                        backgroundColor: '#f43f5e'
+                                    }]
+                                },
+                                options: { responsive: true, maintainAspectRatio: false }
+                            });
+                        }
+                    });
+                },
+
+                async uploadQuestionBank() {
+                    try {
+                        const parsed = JSON.parse(this.jsonUploadText);
+                        const res = await fetch('/api/items/bulk', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(parsed)
+                        });
+                        const data = await res.json();
+                        alert(data.message);
+                        await this.loadSkills();
+                    } catch (e) {
+                        alert('Invalid JSON format: ' + e.message);
+                    }
+                },
+
+                getPrescription(state) {
+                    switch(state) {
+                        case 'Secure': return 'Learner demonstrates fluent mastery. Instructional Action: Advance to higher-level application challenges.';
+                        case 'Lucky / Fragile': return 'Right answer achieved with low certainty or guessing. Instructional Action: Immediate foundation reinforcement and concept review.';
+                        case 'Careless Slip': return 'High understanding marred by misreading or execution errors. Instructional Action: Exam technique, careful reading, and attentional coaching.';
+                        case 'Deep Misconception': return 'Confidently held wrong mental model. Instructional Action: Targeted cognitive conflict and direct remediation on specific misconception.';
+                        default: return 'Complete the quiz to generate a personalized diagnostic profile.';
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
