@@ -43,8 +43,45 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
+## Marks: the number, and what it rests on
+
+The plain mark is still reported - it is the starting point. `app/marks.py` (`compute_marks`) adds the evidence behind it,
+using only the latest attempt per item:
+
+| Field                                  | Meaning                                                              |
+|----------------------------------------|----------------------------------------------------------------------|
+| `score`, `out_of`, `percentage`        | The ordinary mark. Unanswered items score 0.                         |
+| `secure_marks`                         | Correct **and** the learner was Sure                                 |
+| `fragile_marks` / `same_number_gap`    | Correct, but Unsure or Guessing: the part of the mark that is shaky  |
+| `wrong`, `wrong_by_story`              | Marks lost, grouped by why (`mistaken_rule`, `rushed`, ...)          |
+
+Two learners with `score = 4` can have `secure_marks = 4` and `secure_marks = 1`: "The Same Number", in numbers.
+
+Marks are available at `GET /api/marks/{learner}/{skill}`, inside `GET /api/profile/{learner}/{skill}` (`marks`),
+and for every student in `GET /api/teacher/heatmap/{skill}`.
+
+## API
+
+| Method | Path                                  | Purpose                                         |
+|--------|---------------------------------------|-------------------------------------------------|
+| POST   | `/api/seed`                           | Load the question bank + 10 demo students       |
+| GET    | `/api/skills`                         | List skills                                     |
+| GET    | `/api/items/{skill}`                  | Questions (answers hidden)                      |
+| POST   | `/api/items`, `/api/items/bulk`       | Upload questions (JSON)                         |
+| POST   | `/api/submit`                         | Submit an answer; returns a probe if needed     |
+| GET    | `/api/profile/{learner}/{skill}`      | Learner profile (includes marks)                |
+| GET    | `/api/marks/{learner}/{skill}`        | Mark with secure / fragile breakdown            |
+| GET    | `/api/teacher/heatmap/{skill}`        | Class charts data                               |
+
 ## Project structure
 
 ```
 beyond-the-number/
-├── app/
+├── app/        main.py, database.py, models.py, schemas.py, engine.py, marks.py,
+│               question_bank.py, seed.py
+├── data/       question_bank.json, misconceptions.json
+├── static/     index.html
+├── tests/      conftest.py, test_diagnostics.py, test_marks.py
+├── .github/workflows/ci.yml
+└── .gitignore, .env.example, README.md, requirements.txt, requirements-dev.txt
+```
