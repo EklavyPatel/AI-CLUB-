@@ -1,0 +1,80 @@
+[
+  {
+    "code": "confusing_base_case_with_zero",
+    "skill_id": "python_recursion",
+    "description": "Believes the base case always returns 0 (or that 'base' means zero) instead of the value that keeps the maths correct.",
+    "remediation": "Trace factorial(3) by hand on paper; show that returning 0 makes every result 0. Contrast sum-recursion (base 0) with product-recursion (base 1)."
+  },
+  {
+    "code": "missing_termination_belief",
+    "skill_id": "python_recursion",
+    "description": "Believes recursion with a base case can still run forever, or does not see what makes the calls stop.",
+    "remediation": "Step through a call stack diagram and mark the exact call where the base case fires and the stack unwinds."
+  },
+  {
+    "code": "return_type_confusion",
+    "skill_id": "python_recursion",
+    "description": "Thinks a base case returns nothing/None rather than a value that is passed back up.",
+    "remediation": "Have the learner annotate what each frame returns to its caller on a worked example."
+  },
+  {
+    "code": "syntax_fixation",
+    "skill_id": "python_recursion",
+    "description": "Chooses 'Error' whenever code looks unfamiliar; reads syntax rather than behaviour.",
+    "remediation": "Run the code in a REPL together and predict-then-check before explaining."
+  },
+  {
+    "code": "implicit_safe_fallback",
+    "skill_id": "python_recursion",
+    "description": "Assumes Python quietly returns a default value when a base case is missing.",
+    "remediation": "Run a base-case-free function and read the RecursionError traceback."
+  },
+  {
+    "code": "infinite_loop_no_stack_awareness",
+    "skill_id": "python_recursion",
+    "description": "Does not know that each call uses stack space, so thinks infinite recursion just 'keeps going'.",
+    "remediation": "Draw stack frames growing until the limit; show sys.getrecursionlimit()."
+  },
+  {
+    "code": "memory_vs_stack_confusion",
+    "skill_id": "python_recursion",
+    "description": "Mixes up heap memory exhaustion with call-stack depth limits.",
+    "remediation": "Contrast a huge list (MemoryError) with deep recursion (RecursionError)."
+  },
+  {
+    "code": "arithmetic_overflow_confusion",
+    "skill_id": "python_recursion",
+    "description": "Thinks OverflowError (numbers too big) is what stack overflow means.",
+    "remediation": "Compare the two error names and triggers side by side in a REPL."
+  },
+  {
+    "code": "only_last_call_value",
+    "skill_id": "python_recursion",
+    "description": "Thinks the result is just the last call's value, not the values combined on the way back up.",
+    "remediation": "Expand f(3) = 3 + f(2) = 3 + (2 + f(1)) ... line by line until it collapses to a number."
+  },
+  {
+    "code": "loop_substitution",
+    "skill_id": "python_recursion",
+    "description": "Treats recursion as needing a loop; confuses repetition mechanisms.",
+    "remediation": "Rewrite the same task as a loop and as recursion; show the base case plays the role of the loop condition."
+  },
+  {
+    "code": "global_state_belief",
+    "skill_id": "python_recursion",
+    "description": "Believes termination needs a global counter instead of a condition on the argument.",
+    "remediation": "Show a function that shrinks its argument toward the base case with no global state."
+  },
+  {
+    "code": "forgetting_power_decrement",
+    "skill_id": "calculus_derivatives",
+    "description": "Differentiates x^n but forgets to reduce the exponent.",
+    "remediation": "Practise d/dx x^n = n\u00b7x^(n-1) with a table of small cases."
+  },
+  {
+    "code": "omitting_coefficient",
+    "skill_id": "calculus_derivatives",
+    "description": "Drops the exponent as a multiplier when differentiating.",
+    "remediation": "Compare slopes numerically to show the n factor."
+  }
+]

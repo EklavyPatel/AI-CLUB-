@@ -1,0 +1,238 @@
+[
+  {
+    "item_id": "q1",
+    "skill_id": "python_recursion",
+    "stem": "What does factorial(0) return in a standard recursive factorial function?",
+    "options": [
+      {
+        "id": "A",
+        "text": "1",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "0",
+        "is_correct": false,
+        "misconception_code": "confusing_base_case_with_zero"
+      },
+      {
+        "id": "C",
+        "text": "Infinite recursion",
+        "is_correct": false,
+        "misconception_code": "missing_termination_belief"
+      },
+      {
+        "id": "D",
+        "text": "None",
+        "is_correct": false,
+        "misconception_code": "return_type_confusion"
+      }
+    ],
+    "is_probe": false,
+    "parent_item_id": null,
+    "expected_time_s": 30
+  },
+  {
+    "item_id": "q1_probe",
+    "skill_id": "python_recursion",
+    "stem": "[Reworded probe] A recursive countdown stops when n reaches 0 and returns 1. What does countdown(0) evaluate to?",
+    "options": [
+      {
+        "id": "A",
+        "text": "1",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "0",
+        "is_correct": false,
+        "misconception_code": "confusing_base_case_with_zero"
+      },
+      {
+        "id": "C",
+        "text": "Error",
+        "is_correct": false,
+        "misconception_code": "syntax_fixation"
+      }
+    ],
+    "is_probe": true,
+    "parent_item_id": "q1",
+    "expected_time_s": 30
+  },
+  {
+    "item_id": "q2",
+    "skill_id": "python_recursion",
+    "stem": "In Python, what happens if a recursive function has no base case?",
+    "options": [
+      {
+        "id": "A",
+        "text": "RecursionError: maximum recursion depth exceeded",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "It returns 0 automatically",
+        "is_correct": false,
+        "misconception_code": "implicit_safe_fallback"
+      },
+      {
+        "id": "C",
+        "text": "It runs forever without failing",
+        "is_correct": false,
+        "misconception_code": "infinite_loop_no_stack_awareness"
+      }
+    ],
+    "is_probe": false,
+    "parent_item_id": null,
+    "expected_time_s": 30
+  },
+  {
+    "item_id": "q2_probe",
+    "skill_id": "python_recursion",
+    "stem": "[Reworded probe] A recursive function has no stopping condition. Which exception does Python raise when the call stack gets too deep?",
+    "options": [
+      {
+        "id": "A",
+        "text": "RecursionError",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "MemoryError",
+        "is_correct": false,
+        "misconception_code": "memory_vs_stack_confusion"
+      },
+      {
+        "id": "C",
+        "text": "OverflowError",
+        "is_correct": false,
+        "misconception_code": "arithmetic_overflow_confusion"
+      }
+    ],
+    "is_probe": true,
+    "parent_item_id": "q2",
+    "expected_time_s": 30
+  },
+  {
+    "item_id": "q3",
+    "skill_id": "python_recursion",
+    "stem": "def f(n):\n    if n == 0:\n        return 0\n    return n + f(n-1)\n\nWhat does f(3) return?",
+    "options": [
+      {
+        "id": "A",
+        "text": "6",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "3",
+        "is_correct": false,
+        "misconception_code": "only_last_call_value"
+      },
+      {
+        "id": "C",
+        "text": "0",
+        "is_correct": false,
+        "misconception_code": "confusing_base_case_with_zero"
+      },
+      {
+        "id": "D",
+        "text": "Error",
+        "is_correct": false,
+        "misconception_code": "syntax_fixation"
+      }
+    ],
+    "is_probe": false,
+    "parent_item_id": null,
+    "expected_time_s": 45
+  },
+  {
+    "item_id": "q3_probe",
+    "skill_id": "python_recursion",
+    "stem": "[Reworded probe] def g(n):\n    if n == 0:\n        return 0\n    return n + g(n-1)\n\nWhat does g(4) return?",
+    "options": [
+      {
+        "id": "A",
+        "text": "10",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "4",
+        "is_correct": false,
+        "misconception_code": "only_last_call_value"
+      },
+      {
+        "id": "C",
+        "text": "0",
+        "is_correct": false,
+        "misconception_code": "confusing_base_case_with_zero"
+      }
+    ],
+    "is_probe": true,
+    "parent_item_id": "q3",
+    "expected_time_s": 45
+  },
+  {
+    "item_id": "q4",
+    "skill_id": "python_recursion",
+    "stem": "Which of these is REQUIRED to stop a recursive function from calling itself forever?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A base case that returns without a recursive call",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "A for-loop around the recursive call",
+        "is_correct": false,
+        "misconception_code": "loop_substitution"
+      },
+      {
+        "id": "C",
+        "text": "A global counter variable",
+        "is_correct": false,
+        "misconception_code": "global_state_belief"
+      }
+    ],
+    "is_probe": false,
+    "parent_item_id": null,
+    "expected_time_s": 30
+  },
+  {
+    "item_id": "q4_probe",
+    "skill_id": "python_recursion",
+    "stem": "[Reworded probe] What must every correct recursive function contain so that the chain of calls eventually ends?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A condition that returns directly, without calling itself",
+        "is_correct": true,
+        "misconception_code": null
+      },
+      {
+        "id": "B",
+        "text": "A loop that repeats the call",
+        "is_correct": false,
+        "misconception_code": "loop_substitution"
+      },
+      {
+        "id": "C",
+        "text": "A global variable that counts calls",
+        "is_correct": false,
+        "misconception_code": "global_state_belief"
+      }
+    ],
+    "is_probe": true,
+    "parent_item_id": "q4",
+    "expected_time_s": 30
+  }
+]
