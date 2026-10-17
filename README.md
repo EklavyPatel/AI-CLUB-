@@ -2,6 +2,15 @@
 
 # Beyond the Number
 
+we can this locally by downloading reop zip and extract it and then
+we can run this in local host by this commands
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+
+
+
 **A diagnostic assessment platform that treats a mark as a starting point, not the answer.**
 By Eklavy & Keshav.
 
