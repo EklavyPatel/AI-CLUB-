@@ -54,6 +54,12 @@ def record_response(db: Session, sub: ResponseSubmit) -> dict:
     item = db.get(Item, sub.item_id)
     if not item:
         raise EngineError(404, "Item not found")
+    if sub.skill_id != item.skill_id:
+        raise EngineError(422, "Skill does not match the item")
+    if sub.is_probe != item.is_probe:
+        raise EngineError(422, "Probe flag does not match the item")
+    if sub.is_probe and sub.parent_item_id not in (None, item.parent_item_id):
+        raise EngineError(422, "Probe parent does not match the item")
     option = next((o for o in item.options if o.label == sub.chosen_option), None)
     if not option:
         raise EngineError(422, f"Option '{sub.chosen_option}' does not exist on item {sub.item_id}")
@@ -76,6 +82,9 @@ def record_response(db: Session, sub: ResponseSubmit) -> dict:
             .order_by(Response.response_id.desc())
         ).first()
 
+    if sub.is_probe and (parent_resp is None or parent_resp.story != "unresolved"):
+        raise EngineError(422, "Probe needs an unresolved parent answer")
+
     story = None if sub.is_probe else classify(option, sub.confidence, sub.time_ms, item.expected_time_s)
     resp = Response(
         learner_id=sub.learner_id, item_id=item.item_id, skill_id=item.skill_id,
@@ -87,7 +96,7 @@ def record_response(db: Session, sub: ResponseSubmit) -> dict:
     db.add(resp)
 
     # The probe result decides the story of the confident-wrong answer it was triggered by.
-    if parent_resp is not None and parent_resp.story == "unresolved":
+    if parent_resp is not None and parent_resp.story == "unresolved" and sub.confidence == "Sure":
         parent_resp.story = "missed_condition" if option.is_correct else "mistaken_rule"
     db.flush()
 
@@ -142,7 +151,7 @@ def rebuild_profile(db: Session, learner_id: str, skill_id: str) -> Profile:
 
     needed = None
     if c["unresolved"]:
-        needed = (f"{c['unresolved']} confident wrong answer(s) have no probe result yet. "
+        needed = (f"{c['unresolved']} confident wrong answer(s) still need a confident probe result. "
                   "Until the reworded probe is answered we cannot tell a slip from a misconception.")
     elif 0 < n < 3:
         needed = f"Only {n} item(s) answered. Collect more evidence before trusting this label."

@@ -1,0 +1,338 @@
+[
+  {
+    "item_id": "python_recursion_01",
+    "skill_id": "python_recursion",
+    "stem": "What is recursion?",
+    "expected_time_s": 30,
+    "options": [
+      {
+        "id": "A",
+        "text": "A function calling itself to solve smaller instances of a problem",
+        "is_correct": true
+      },
+      {
+        "id": "B",
+        "text": "A loop that always runs forever",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "A function with no return value",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "A way to declare a variable",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_02",
+    "skill_id": "python_recursion",
+    "stem": "What is the main purpose of a base case in a recursive function?",
+    "expected_time_s": 30,
+    "options": [
+      {
+        "id": "A",
+        "text": "To call the function again",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "To stop recursion when a simple condition is reached",
+        "is_correct": true
+      },
+      {
+        "id": "C",
+        "text": "To increase the input size",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "To convert recursion into a list",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_03",
+    "skill_id": "python_recursion",
+    "stem": "What does factorial(4) return?\n\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)",
+    "expected_time_s": 60,
+    "options": [
+      {
+        "id": "A",
+        "text": "4",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "16",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "24",
+        "is_correct": true
+      },
+      {
+        "id": "D",
+        "text": "120",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_04",
+    "skill_id": "python_recursion",
+    "stem": "What does countdown(3) print?\n\ndef countdown(n):\n    if n == 0:\n        return\n    print(n)\n    countdown(n - 1)",
+    "expected_time_s": 60,
+    "options": [
+      {
+        "id": "A",
+        "text": "0 1 2 3, each on a new line",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "3 2 1 0, each on a new line",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "3, on one line only",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "3 2 1, each on a new line",
+        "is_correct": true
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_05",
+    "skill_id": "python_recursion",
+    "stem": "For a positive starting n, why does this function fail to reach its base case?\n\ndef count(n):\n    if n == 0:\n        return 0\n    return count(n + 1)",
+    "expected_time_s": 45,
+    "options": [
+      {
+        "id": "A",
+        "text": "Each recursive call moves n farther away from zero",
+        "is_correct": true
+      },
+      {
+        "id": "B",
+        "text": "A base case cannot compare n with zero",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "Recursive functions cannot return numbers",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "Python does not allow functions to call themselves",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_06",
+    "skill_id": "python_recursion",
+    "stem": "What does add_to(4) return?\n\ndef add_to(n):\n    if n == 0:\n        return 0\n    return n + add_to(n - 1)",
+    "expected_time_s": 60,
+    "options": [
+      {
+        "id": "A",
+        "text": "4",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "10",
+        "is_correct": true
+      },
+      {
+        "id": "C",
+        "text": "16",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "0",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_07",
+    "skill_id": "python_recursion",
+    "stem": "What does power(2, 3) return? Assume exponent is a non-negative integer.\n\ndef power(base, exponent):\n    if exponent == 0:\n        return 1\n    return base * power(base, exponent - 1)",
+    "expected_time_s": 60,
+    "options": [
+      {
+        "id": "A",
+        "text": "6",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "9",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "8",
+        "is_correct": true
+      },
+      {
+        "id": "D",
+        "text": "1",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_08",
+    "skill_id": "python_recursion",
+    "stem": "How many total calls to factorial occur when evaluating factorial(3), including the initial call?\n\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)",
+    "expected_time_s": 75,
+    "options": [
+      {
+        "id": "A",
+        "text": "1",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "2",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "4",
+        "is_correct": true
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_09",
+    "skill_id": "python_recursion",
+    "stem": "What does show(3) print?\n\ndef show(n):\n    if n == 0:\n        return\n    show(n - 1)\n    print(n)",
+    "expected_time_s": 75,
+    "options": [
+      {
+        "id": "A",
+        "text": "1 2 3, each on a new line",
+        "is_correct": true
+      },
+      {
+        "id": "B",
+        "text": "3 2 1, each on a new line",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "0 1 2 3, each on a new line",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "3 3 3, each on a new line",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_10",
+    "skill_id": "python_recursion",
+    "stem": "What does mystery(3) return?\n\ndef mystery(n):\n    if n == 0:\n        return 0\n    mystery(n - 1)",
+    "expected_time_s": 75,
+    "options": [
+      {
+        "id": "A",
+        "text": "0",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "None",
+        "is_correct": true
+      },
+      {
+        "id": "C",
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "6",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_11",
+    "skill_id": "python_recursion",
+    "stem": "What is the time complexity of this function for a non-negative integer n? Assume each call performs constant work apart from its recursive call.\n\ndef visit(n):\n    if n == 0:\n        return\n    visit(n - 1)",
+    "expected_time_s": 60,
+    "options": [
+      {
+        "id": "A",
+        "text": "O(1)",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "O(log n)",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "O(n)",
+        "is_correct": true
+      },
+      {
+        "id": "D",
+        "text": "O(n squared)",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "item_id": "python_recursion_12",
+    "skill_id": "python_recursion",
+    "stem": "What does binary search normally do in its recursive step when searching a sorted array?",
+    "expected_time_s": 45,
+    "options": [
+      {
+        "id": "A",
+        "text": "Search both halves completely",
+        "is_correct": false
+      },
+      {
+        "id": "B",
+        "text": "Increase the size of the search interval",
+        "is_correct": false
+      },
+      {
+        "id": "C",
+        "text": "Remove the base case",
+        "is_correct": false
+      },
+      {
+        "id": "D",
+        "text": "Continue in the half that could contain the target",
+        "is_correct": true
+      }
+    ]
+  }
+]

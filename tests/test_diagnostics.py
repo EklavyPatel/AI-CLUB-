@@ -1,9 +1,29 @@
+from httpx import Response as HTTPResponse
+from app.database import SessionLocal
+from app.engine import EngineError, record_response
+from app.models import Learner
+from app.schemas import ResponseSubmit
+
+
+def make_learner(learner):
+    with SessionLocal() as db:
+        if not db.get(Learner, learner):
+            db.add(Learner(learner_id=learner, class_id='demo-class'))
+            db.commit()
+
+
 def submit(client, learner, item, option, conf, secs=20, probe=False, parent=None):
-    return client.post("/api/submit", json={
-        "learner_id": learner, "item_id": item, "skill_id": "python_recursion",
-        "chosen_option": option, "confidence": conf, "time_ms": secs * 1000,
-        "is_probe": probe, "parent_item_id": parent,
-    })
+    # Diagnostic unit tests exercise the engine; web answers use timed endpoints.
+    make_learner(learner)
+    with SessionLocal() as db:
+        try:
+            result = record_response(db, ResponseSubmit(
+                learner_id=learner, item_id=item, skill_id='python_recursion',
+                chosen_option=option, confidence=conf, time_ms=secs*1000,
+                is_probe=probe, parent_item_id=parent))
+            return HTTPResponse(200, json=result)
+        except EngineError as exc:
+            return HTTPResponse(exc.status, json={'detail': exc.detail})
 
 
 def test_student_items_do_not_leak_answers(seeded):

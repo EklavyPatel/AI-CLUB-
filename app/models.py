@@ -107,3 +107,63 @@ class Profile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class Account(Base):
+    __tablename__ = 'accounts'
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    role: Mapped[str] = mapped_column(String(16))
+    password_hash: Mapped[str] = mapped_column(Text)
+
+
+class LoginSession(Base):
+    __tablename__ = 'login_sessions'
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey('accounts.id'))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ClassOwner(Base):
+    __tablename__ = 'class_owners'
+    class_id: Mapped[str] = mapped_column(ForeignKey('classrooms.class_id'), primary_key=True)
+    teacher_id: Mapped[str] = mapped_column(ForeignKey('accounts.id'), index=True)
+
+
+class Membership(Base):
+    __tablename__ = 'memberships'
+    class_id: Mapped[str] = mapped_column(ForeignKey('classrooms.class_id'), primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey('accounts.id'), primary_key=True)
+
+
+class Invitation(Base):
+    __tablename__ = 'invitations'
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    class_id: Mapped[str] = mapped_column(ForeignKey('classrooms.class_id'))
+    email: Mapped[str] = mapped_column(String(254))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Quiz(Base):
+    __tablename__ = 'quizzes'
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    class_id: Mapped[str] = mapped_column(ForeignKey('classrooms.class_id'), index=True)
+    title: Mapped[str] = mapped_column(String(128))
+    skill_id: Mapped[str] = mapped_column(ForeignKey('skills.skill_id'), unique=True)
+    total_time_s: Mapped[int] = mapped_column(Integer)
+
+
+class QuizAttempt(Base):
+    __tablename__ = 'quiz_attempts'
+    __table_args__ = (UniqueConstraint('quiz_id', 'learner_id', name='uq_quiz_learner'),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    quiz_id: Mapped[str] = mapped_column(ForeignKey('quizzes.id'), index=True)
+    learner_id: Mapped[str] = mapped_column(ForeignKey('accounts.id'), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    deadline: Mapped[datetime] = mapped_column(DateTime)
+    finished: Mapped[bool] = mapped_column(Boolean, default=False)
+    current_index: Mapped[int] = mapped_column(Integer, default=0)
+    question_started_at: Mapped[datetime] = mapped_column(DateTime)
+    question_deadline: Mapped[datetime] = mapped_column(DateTime)
