@@ -12,7 +12,7 @@ const dump = JSON.stringify;
 function integer(value,min,max,label){if(!Number.isInteger(value)||value<min||value>max)fail(422,`${label} must be an integer from ${min} to ${max}.`);return value;}
 function text(value,max,label){if(typeof value!=='string'||!value.trim()||value.length>max)fail(422,`Enter a valid ${label}.`);return value.trim();}
 function email(value){const e=text(value,254,'email').toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))fail(422,'Enter a valid email address.');return e;}
-function role(value){if(!['teacher','student','admin'].includes(value))fail(422,'Choose teacher, student, or admin.');return value;}
+function role(value){if(!['teacher','student'].includes(value))fail(422,'Choose teacher or student.');return value;}
 async function password(value,salt=token()){
   if(typeof value!=='string'||value.length<10||value.length>128)fail(422,'Use a password from 10 to 128 characters.');
   const key=await crypto.subtle.importKey('raw',enc.encode(value),'PBKDF2',false,['deriveBits']);
@@ -71,6 +71,7 @@ export async function handle(request,env){
   const cookie=request.headers.get('cookie')?.match(/(?:^|;\s*)btn_session=([^;]+)/)?.[1]||'';
   const cookieHash=await hash(cookie);
   async function loginResponse(user){
+    await run('DELETE FROM sessions WHERE expires_ms<=?',Date.now());
     const value=token();await run('INSERT INTO sessions(token_hash,user_id,expires_ms) VALUES(?,?,?)',await hash(value),user.id,Date.now()+7*86400000);
     return json(publicUser(user),200,{'Set-Cookie':`btn_session=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800${request.headers.get('x-site-protocol')==='http'?'':'; Secure'}`});
   }
@@ -84,8 +85,15 @@ export async function handle(request,env){
   if(path==='/api/ready'){await first('SELECT 1');return json({status:'ready',database:'Cloudflare D1'});}
   if(path==='/api/auth/register'&&method==='POST'){
     await throttle('register',100);const data=await body(),user={id:id(),email:email(data.email),name:text(data.name,128,'name'),role:role(data.role)};
+    if(user.role==='teacher'){
+      if(!env.TEACHER_SIGNUP_CODE||!await equal(String(data.teacher_code||''),String(env.TEACHER_SIGNUP_CODE)))fail(403,'Invalid or missing teacher authorization code.');
+    }
     user.sid=user.role==='student'&&data.sid?.trim()?text(data.sid,64,'SID'):'';
     user.branch=user.role==='student'&&data.branch?.trim()?text(data.branch,128,'branch'):'';
+    if(user.sid){
+      const existingSid=await first('SELECT 1 FROM users WHERE sid != "" AND LOWER(sid)=?',user.sid.toLowerCase());
+      if(existingSid)fail(409,'An account with this Student ID (SID) already exists.');
+    }
     const hashed=await password(data.password);
     const result=await run('INSERT OR IGNORE INTO users(id,email,name,role,password_hash,sid,branch) VALUES(?,?,?,?,?,?,?)',user.id,user.email,user.name,user.role,hashed,user.sid,user.branch);
     if(!result.meta.changes)fail(409,'An account with this email already exists.');return loginResponse(user);
@@ -115,6 +123,10 @@ export async function handle(request,env){
     if(user.role==='student'){
       const sidCandidate=data.sid?.trim();
       const sid=sidCandidate?(user.sid&&sidCandidate.toLowerCase()===user.sid.toLowerCase()?user.sid:text(sidCandidate,64,'SID')):user.sid;
+      if(sid&&(!user.sid||sid.toLowerCase()!==user.sid.toLowerCase())){
+        const existingSid=await first('SELECT 1 FROM users WHERE sid != "" AND LOWER(sid)=? AND id!=?',sid.toLowerCase(),user.id);
+        if(existingSid)fail(409,'An account with this Student ID (SID) already exists.');
+      }
       const branch=data.branch?.trim()?text(data.branch,128,'branch'):user.branch;
       if(sid!==user.sid||branch!==user.branch)await run('UPDATE users SET sid=?,branch=? WHERE id=?',sid,branch,user.id);
       user.sid=sid;user.branch=branch;
@@ -151,7 +163,9 @@ export async function handle(request,env){
   async function expire(attempt){return attempt&&!attempt.result&&Date.now()>=attempt.deadline_ms?finalize(attempt,parse(attempt.answers)):attempt;}
   async function paperPayload(attempt){
     attempt=await expire(attempt);
+    const q=await first('SELECT negative_marks,schedule_mode,start_time_ms,end_time_ms FROM quizzes WHERE id=?',attempt.quiz_id);
     return {id:attempt.id,mode:'mcq',finished:!!attempt.result,server_time:new Date().toISOString(),deadline:new Date(attempt.deadline_ms).toISOString(),total_questions:parse(attempt.questions).length,answers:parse(attempt.answers),result:attempt.result?parse(attempt.result):null,
+      negative_marks:q?.negative_marks||0,schedule_mode:q?.schedule_mode||'instant',start_time:q?.start_time_ms?new Date(q.start_time_ms).toISOString():null,end_time:q?.end_time_ms?new Date(q.end_time_ms).toISOString():null,
       questions:attempt.result?[]:parse(attempt.questions).map(q=>({...q,options:q.options.map(o=>({id:o.id,text:o.text}))}))};
   }
   async function marks(q,learner,existing){
@@ -201,6 +215,20 @@ export async function handle(request,env){
     await run('DELETE FROM memberships WHERE class_id=? AND user_id=?',classId,studentId);
     return json({message:'Student removed from classroom.'});
   }
+  match=path.match(/^\/api\/classes\/([^/]+)$/);
+  if(match&&method==='DELETE'){
+    requireTeacher();const classId=match[1];const c=await accessClass(classId);
+    if(c.teacher_id!==user.id)fail(403,'This classroom belongs to another teacher.');
+    await db.batch([
+      stmt('DELETE FROM attempts WHERE quiz_id IN (SELECT id FROM quizzes WHERE class_id=?)',classId),
+      stmt('DELETE FROM quizzes WHERE class_id=?',classId),
+      stmt('DELETE FROM classroom_codes WHERE class_id=?',classId),
+      stmt('DELETE FROM invitations WHERE class_id=?',classId),
+      stmt('DELETE FROM memberships WHERE class_id=?',classId),
+      stmt('DELETE FROM classes WHERE id=?',classId)
+    ]);
+    return json({message:'Classroom deleted.'});
+  }
   match=path.match(/^\/api\/classes\/([^/]+)\/(invitations|students|quizzes)$/);
   if(match){const [,classId,action]=match;await accessClass(classId);
     if(action==='invitations'&&method==='POST'){requireTeacher();const data=await body(),value=token(),e=email(data.email);await run('INSERT INTO invitations(token_hash,class_id,email,expires_ms) VALUES(?,?,?,?)',await hash(value),classId,e,Date.now()+7*86400000);return json({token:value,email:e,expires_in_days:7},201);}
@@ -236,6 +264,15 @@ export async function handle(request,env){
       stmt('UPDATE invitations SET accepted=1 WHERE token_hash=? AND accepted=0 AND expires_ms>?',hashed,Date.now())
     ]);
     if(!results[1].meta.changes)fail(422,'This invitation has already been accepted.');return json({message:'You joined the classroom.',class_id:invite.class_id});
+  }
+  match=path.match(/^\/api\/quizzes\/([^/]+)$/);
+  if(match&&method==='DELETE'){
+    requireTeacher();const q=await accessQuiz(match[1]);
+    await db.batch([
+      stmt('DELETE FROM attempts WHERE quiz_id=?',q.id),
+      stmt('DELETE FROM quizzes WHERE id=?',q.id)
+    ]);
+    return json({message:'Quiz deleted.'});
   }
   match=path.match(/^\/api\/quizzes\/([^/]+)\/start$/);
   if(match&&method==='POST'){

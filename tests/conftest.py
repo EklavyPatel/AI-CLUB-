@@ -2,6 +2,7 @@ import os
 import tempfile
 
 os.environ['DATABASE_URL'] = f'sqlite:///{tempfile.mkdtemp()}/test.db'
+os.environ.setdefault('TEACHER_SIGNUP_CODE', 'test-teacher-secret')
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,7 +18,8 @@ def client():
     with TestClient(app) as c:
         account = c.post('/api/auth/register', json={
             'email': 'diagnostics@example.com', 'password': 'diagnostic-password',
-            'name': 'Diagnostics Teacher', 'role': 'teacher'}).json()
+            'name': 'Diagnostics Teacher', 'role': 'teacher',
+            'teacher_code': os.environ.get('TEACHER_SIGNUP_CODE', 'test-teacher-secret')}).json()
         c.teacher_id = account['id']
         yield c
 

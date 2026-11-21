@@ -35,6 +35,11 @@ async def lifespan(_app: FastAPI):
         for field, size in [('sid', 64), ('branch', 128)]:
             if field not in columns:
                 connection.execute(text(f"ALTER TABLE accounts ADD COLUMN {field} VARCHAR({size}) NOT NULL DEFAULT ''"))
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_accounts_sid_lower ON accounts (LOWER(sid)) WHERE sid != ''"))
+    except Exception:
+        pass
     # Add negative marking and calendar scheduling to existing exam_policies
     if 'exam_policies' in inspect(engine).get_table_names():
         ep_cols = {c['name'] for c in inspect(engine).get_columns('exam_policies')}

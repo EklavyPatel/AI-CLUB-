@@ -11,3 +11,4 @@ CREATE TABLE IF NOT EXISTS attempts (id TEXT PRIMARY KEY,quiz_id TEXT NOT NULL R
 CREATE INDEX IF NOT EXISTS attempts_learner ON attempts(learner_id);
 CREATE TABLE IF NOT EXISTS login_limits (key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires_ms INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS classroom_codes (class_id TEXT PRIMARY KEY REFERENCES classes(id),code TEXT NOT NULL UNIQUE CHECK(length(code)=8));
+CREATE UNIQUE INDEX IF NOT EXISTS users_sid_unique ON users(LOWER(sid)) WHERE sid != '';

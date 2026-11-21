@@ -1,3 +1,5 @@
+import hmac
+import os
 import secrets
 import threading
 from datetime import timedelta, timezone
@@ -14,13 +16,12 @@ from .database import get_db
 from .engine import public_item, record_response
 from .marks import compute_marks
 from .models import (Account, Classroom, ClassOwner, ExamPaper, Invitation, Item,
-                     Learner, LoginSession, Membership, Profile, Quiz,
-                     QuizAttempt, Response, Skill)
+                     Learner, LoginSession, Membership, Misconception, Option,
+                     Profile, Quiz, QuizAttempt, Response, Skill, ExamPolicy,
+                     ClassroomCode)
 from .question_bank import upsert_item
 from .schemas import (ClassCreate, Credentials, InviteAccept, InviteCreate,
-                      QuizCreate, Register, ResponseSubmit, TimedAnswer)
-from .models import ExamPolicy, ClassroomCode
-from .schemas import RoomJoin
+                      QuizCreate, Register, ResponseSubmit, TimedAnswer, RoomJoin)
 from .exams import start_exam
 
 router = APIRouter(prefix='/api')
@@ -30,6 +31,17 @@ _login_lock = threading.Lock()
 
 @router.post('/auth/register')
 def register(data: Register, request: Request, response: HTTPResponse, db: Session = Depends(get_db)):
+    if data.role == 'teacher':
+        code = os.environ.get('TEACHER_SIGNUP_CODE', '')
+        if os.environ.get('VERCEL') and not code:
+            raise HTTPException(403, 'Teacher signup is closed.')
+        if not code or not hmac.compare_digest(getattr(data, 'teacher_code', '') or '', code):
+            raise HTTPException(403, 'Invalid or missing teacher authorization code.')
+    elif data.role == 'student' and data.sid:
+        existing_sid = db.scalar(select(Account).where(Account.sid != '', func.lower(Account.sid) == data.sid.lower()))
+        if existing_sid:
+            raise HTTPException(409, 'An account with this Student ID (SID) already exists.')
+
     account = Account(id=secrets.token_hex(16), email=data.email, name=data.name.strip(),
                       role=data.role, password_hash=password_hash(data.password),
                       sid=data.sid if data.role == 'student' else '',
@@ -67,11 +79,14 @@ def login(data: Credentials, request: Request, response: HTTPResponse, db: Sessi
         if sid_candidate:
             account = db.scalar(select(Account).where(Account.sid != '', func.lower(Account.sid) == sid_candidate.lower()))
     if not account:
-        raise HTTPException(401, 'Account not found with this email or SID.')
+        raise HTTPException(401, 'Email, SID, or password is incorrect.')
     if not check_password(data.password, account.password_hash) or (data.role and data.role != account.role):
         raise HTTPException(401, 'Email, SID, or password is incorrect.')
     if account.role == 'student':
         if data.sid and (not account.sid or data.sid.lower() != account.sid.lower()):
+            existing_sid = db.scalar(select(Account).where(Account.sid != '', func.lower(Account.sid) == data.sid.lower(), Account.id != account.id))
+            if existing_sid:
+                raise HTTPException(409, 'An account with this Student ID (SID) already exists.')
             account.sid = data.sid
         if data.branch:
             account.branch = data.branch
@@ -134,6 +149,57 @@ def create_class(data: ClassCreate, account: Account = Depends(teacher), db: Ses
     db.add(ClassOwner(class_id=row.class_id, teacher_id=account.id))
     db.commit()
     return {'id': row.class_id, 'name': row.name, 'join_code': classroom_code(db, row.class_id)}
+
+
+def _cascade_delete_quiz(db: Session, quiz: Quiz):
+    skill_id = quiz.skill_id
+    attempt_ids = db.scalars(select(QuizAttempt.id).where(QuizAttempt.quiz_id == quiz.id)).all()
+    if attempt_ids:
+        db.execute(delete(ExamPaper).where(ExamPaper.attempt_id.in_(attempt_ids)))
+        db.execute(delete(QuizAttempt).where(QuizAttempt.id.in_(attempt_ids)))
+    db.execute(delete(ExamPolicy).where(ExamPolicy.quiz_id == quiz.id))
+    if skill_id:
+        db.execute(update(Response).where(Response.skill_id == skill_id).values(parent_response_id=None))
+        db.execute(delete(Response).where(Response.skill_id == skill_id))
+        db.execute(delete(Profile).where(Profile.skill_id == skill_id))
+    db.execute(delete(Quiz).where(Quiz.id == quiz.id))
+    if skill_id:
+        item_ids = db.scalars(select(Item.item_id).where(Item.skill_id == skill_id)).all()
+        if item_ids:
+            db.execute(update(Item).where(Item.skill_id == skill_id).values(parent_item_id=None))
+            db.execute(delete(Option).where(Option.item_id.in_(item_ids)))
+            db.execute(delete(Item).where(Item.skill_id == skill_id))
+        db.execute(delete(Misconception).where(Misconception.skill_id == skill_id))
+        db.execute(delete(Skill).where(Skill.skill_id == skill_id))
+
+
+@router.delete('/classes/{class_id}')
+def delete_class(class_id: str, account: Account = Depends(teacher), db: Session = Depends(get_db)):
+    owns_class(db, account, class_id)
+    classroom = db.get(Classroom, class_id)
+    if not classroom:
+        raise HTTPException(404, 'Classroom not found.')
+    for quiz in db.scalars(select(Quiz).where(Quiz.class_id == class_id)).all():
+        _cascade_delete_quiz(db, quiz)
+    db.execute(update(Learner).where(Learner.class_id == class_id).values(class_id=None))
+    db.execute(delete(Invitation).where(Invitation.class_id == class_id))
+    db.execute(delete(Membership).where(Membership.class_id == class_id))
+    db.execute(delete(ClassroomCode).where(ClassroomCode.class_id == class_id))
+    db.execute(delete(ClassOwner).where(ClassOwner.class_id == class_id))
+    db.execute(delete(Classroom).where(Classroom.class_id == class_id))
+    db.commit()
+    return {'message': 'Classroom deleted.'}
+
+
+@router.delete('/quizzes/{quiz_id}')
+def delete_quiz(quiz_id: str, account: Account = Depends(teacher), db: Session = Depends(get_db)):
+    quiz = db.get(Quiz, quiz_id)
+    if not quiz:
+        raise HTTPException(404, 'Quiz not found.')
+    owns_class(db, account, quiz.class_id)
+    _cascade_delete_quiz(db, quiz)
+    db.commit()
+    return {'message': 'Quiz deleted.'}
 
 
 @router.post('/classes/join')

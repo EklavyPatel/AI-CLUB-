@@ -19,7 +19,23 @@ ARTIFACTS = ROOT / 'artifacts'
 TEST_PASSWORD=secrets.token_urlsafe(24)
 
 
-def register(page, role, email, name, sid=None):
+def get_teacher_signup_code():
+    code = os.environ.get('TEACHER_SIGNUP_CODE')
+    if code:
+        return code
+    env_file = ROOT / '.env'
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith('TEACHER_SIGNUP_CODE='):
+                return line.split('=', 1)[1].strip()
+    return 'demo-teacher-code'
+
+
+TEACHER_SIGNUP_CODE = get_teacher_signup_code()
+
+
+def register(page, role, email, name, sid=None, teacher_code=None):
     page.locator('#auth-screen').wait_for(timeout=30000)
     page.locator('#auth-toggle').click()
     page.locator('[name=name]').fill(name)
@@ -31,6 +47,9 @@ def register(page, role, email, name, sid=None):
         page.locator('[name=branch]').fill('Computer Science')
     else:
         expect(page.locator('#student-details')).to_be_hidden()
+    if role == 'teacher':
+        expect(page.locator('#teacher-details')).to_be_visible()
+        page.locator('[name=teacher_code]').fill(teacher_code or TEACHER_SIGNUP_CODE)
     page.locator('[name=password]').fill(TEST_PASSWORD)
     page.locator('#auth-form button').click()
     expect(page.locator('#account-name')).to_have_text(name)
@@ -105,6 +124,7 @@ def run(base):
         student.set_viewport_size({'width': 390, 'height': 844})
         student.screenshot(path=str(ARTIFACTS/'student-mobile.png'), full_page=True)
         assert student.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        student.once('dialog', lambda dialog: dialog.accept())
         student.get_by_role('button', name='Submit assessment', exact=True).click()
         expect(student.locator('#page')).to_contain_text('3/3 marks · 100% · 3 correct · 0 wrong · 0 skipped')
         student.screenshot(path=str(ARTIFACTS/'student-result.png'), full_page=True)
@@ -176,14 +196,20 @@ def run(base):
         user_select = student2.locator('.quiz-stem').evaluate("el => getComputedStyle(el).userSelect")
         assert user_select == 'none', f"Expected userSelect 'none', got {user_select}"
 
-        # Simulate tab switch (document visibility hidden)
+        # Test 2-strike tab switch anti-cheat flow
+        # Strike 1: Warning toast, exam remains active
         student2.evaluate("Object.defineProperty(document, 'hidden', { value: true, writable: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));")
+        expect(student2.locator('#toast')).to_contain_text('Warning (1/2)')
+        expect(student2.locator('.quiz-stem')).to_be_visible()
+
+        # Strike 2: Auto-submits the assessment
+        student2.evaluate("document.dispatchEvent(new Event('visibilitychange'));")
         expect(student2.locator('#page')).to_contain_text('Assessment submitted', timeout=15000)
         expect(student2.locator('#toast')).to_contain_text('Tab switch detected')
 
         assert not errors, errors
         browser.close()
-        print('Browser E2E passed: teacher registration, classroom, invitation, PDF review/publication, student assignment, autosave/resume, desktop/mobile, final grading, teacher report, CSV export, student SID login, teacher student removal, admin role removed, copy blocking, and tab-switch auto-submit; no page errors.')
+        print('Browser E2E passed: teacher registration, classroom, invitation, PDF review/publication, student assignment, autosave/resume, desktop/mobile, final grading, teacher report, CSV export, student SID login, teacher student removal, admin role removed, copy blocking, and 2-strike tab-switch auto-submit; no page errors.')
 
 
 
@@ -198,7 +224,7 @@ if __name__ == '__main__':
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
-        env = {**os.environ, 'DATABASE_URL': f'sqlite:///{temp}/browser.db'}
+        env = {**os.environ, 'DATABASE_URL': f'sqlite:///{temp}/browser.db', 'TEACHER_SIGNUP_CODE': TEACHER_SIGNUP_CODE}
         log = open(Path(temp)/'server.log', 'w+')
         server = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'app.main:app', '--port', str(port)],
                                   cwd=ROOT, env=env, stdout=log, stderr=log)

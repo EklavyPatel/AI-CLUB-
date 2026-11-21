@@ -77,6 +77,7 @@ class Credentials(BaseModel):
 class Register(Credentials):
     name: str = Field(min_length=1, max_length=128)
     role: Literal['teacher', 'student']
+    teacher_code: str = Field(default='', max_length=128)
 
     @model_validator(mode='after')
     def validate_register(self):

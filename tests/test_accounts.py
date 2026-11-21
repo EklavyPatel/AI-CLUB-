@@ -1,4 +1,5 @@
 from datetime import timedelta
+import os
 import secrets
 
 from fastapi.testclient import TestClient
@@ -10,11 +11,13 @@ from app.models import QuizAttempt, Response
 from sqlalchemy import select
 
 
-def account(role):
+def account(role, **kwargs):
     client = TestClient(app)
     email = secrets.token_hex(6)+'@example.com'
-    response = client.post('/api/auth/register', json={
-        'email': email, 'password': 'a-secure-password', 'name': role.title(), 'role': role})
+    payload = {'email': email, 'password': 'a-secure-password', 'name': role.title(), 'role': role, **kwargs}
+    if role == 'teacher' and 'teacher_code' not in payload:
+        payload['teacher_code'] = os.environ.get('TEACHER_SIGNUP_CODE', 'test-teacher-secret')
+    response = client.post('/api/auth/register', json=payload)
     assert response.status_code == 200, response.text
     return client, response.json()
 
@@ -291,7 +294,7 @@ def test_student_sid_login_and_case_insensitivity(client):
 
     bad_sid = TestClient(app).post('/api/auth/login', json={'sid': 'NONEXISTENT_SID', 'password': 'a-secure-password'})
     assert bad_sid.status_code == 401
-    assert 'not found' in bad_sid.json()['detail'].lower()
+    assert 'incorrect' in bad_sid.json()['detail'].lower()
 
 
 def test_learner_profile_and_teacher_insight_sid(client):
@@ -356,3 +359,51 @@ def test_teacher_remove_student_from_class_and_admin_rejected(client):
 
     assert not any(s['id'] == student_info['id'] for s in teacher_client.get(f'/api/classes/{class_id}/students').json())
     assert student_client.get('/api/auth/me').status_code == 200
+
+
+def test_teacher_code_and_duplicate_sid_and_delete_endpoints(client):
+    c = TestClient(app)
+    bad_code = c.post('/api/auth/register', json={
+        'name': 'Bad Teacher', 'email': 'bad_teacher@example.com', 'password': 'a-secure-password',
+        'role': 'teacher', 'teacher_code': 'invalid-code'
+    })
+    assert bad_code.status_code == 403
+
+    no_code = c.post('/api/auth/register', json={
+        'name': 'No Code Teacher', 'email': 'nocode_teacher@example.com', 'password': 'a-secure-password',
+        'role': 'teacher'
+    })
+    assert no_code.status_code == 403
+
+    teacher, _ = account('teacher')
+    student1, _ = account('student', sid='STU_UNIQUE_1', branch='CS')
+    dup_reg = c.post('/api/auth/register', json={
+        'name': 'Dup Student', 'email': 'dup_student@example.com', 'password': 'a-secure-password',
+        'role': 'student', 'sid': 'stu_unique_1', 'branch': 'CS'
+    })
+    assert dup_reg.status_code == 409
+
+    student2, student2_info = account('student')
+    dup_login = student2.post('/api/auth/login', json={
+        'email': student2_info['email'], 'password': 'a-secure-password',
+        'role': 'student', 'sid': 'stu_unique_1'
+    })
+    assert dup_login.status_code == 409
+
+    class_id = classroom(teacher)
+    quiz = publish(teacher, class_id, 1)
+
+    assert student1.delete(f"/api/quizzes/{quiz['id']}").status_code == 403
+    assert student1.delete(f"/api/classes/{class_id}").status_code == 403
+
+    other_teacher, _ = account('teacher')
+    assert other_teacher.delete(f"/api/classes/{class_id}").status_code == 403
+
+    del_q = teacher.delete(f"/api/quizzes/{quiz['id']}")
+    assert del_q.status_code == 200
+    assert teacher.get(f"/api/items/{quiz['skill_id']}").status_code == 404
+
+    del_c = teacher.delete(f"/api/classes/{class_id}")
+    assert del_c.status_code == 200
+    assert not any(c['id'] == class_id for c in teacher.get('/api/classes').json())
+

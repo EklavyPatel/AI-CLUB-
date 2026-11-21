@@ -38,11 +38,17 @@ app.mount('/static', StaticFiles(directory=STATIC), name='static')
 
 
 def backend_headers(request):
+    raw_ip = (
+        request.headers.get('cf-connecting-ip')
+        or request.headers.get('x-vercel-forwarded-for')
+        or request.headers.get('x-forwarded-for', request.client.host if request.client else '')
+    )
+    client_ip = raw_ip.split(',')[0].strip()
     return {'Authorization': 'Bearer '+os.environ['D1_GATEWAY_TOKEN'],
             'Cookie': request.headers.get('cookie', ''),
             'Content-Type': request.headers.get('content-type', 'application/json'),
             'x-site-protocol': request.headers.get('x-forwarded-proto', request.url.scheme).split(',')[0],
-            'x-client-ip': request.headers.get('x-forwarded-for', request.client.host if request.client else '').split(',')[0]}
+            'x-client-ip': client_ip}
 
 
 @app.middleware('http')
@@ -66,8 +72,9 @@ def index():
 
 @app.post('/api/question-bank/import-pdf')
 async def import_pdf(request: Request, file: UploadFile = File(...)):
+    gateway_url = os.environ['D1_GATEWAY_URL'].rstrip('/')
     try:
-        auth = await request.app.state.backend_client.get(os.environ['D1_GATEWAY_URL']+'/api/auth/me', headers=backend_headers(request))
+        auth = await request.app.state.backend_client.get(gateway_url+'/api/auth/me', headers=backend_headers(request))
     except httpx.RequestError:
         raise HTTPException(503, 'The assessment service is temporarily unavailable.')
     if auth.status_code != 200:
@@ -93,13 +100,14 @@ async def import_pdf(request: Request, file: UploadFile = File(...)):
 
 @app.api_route('/api/{path:path}', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 async def proxy(path: str, request: Request):
+    gateway_url = os.environ['D1_GATEWAY_URL'].rstrip('/')
     content = bytearray()
     async for chunk in request.stream():
         content.extend(chunk)
         if len(content) > 3*1024*1024:
             raise HTTPException(413, 'Request is too large.')
     try:
-        result = await request.app.state.backend_client.request(request.method, os.environ['D1_GATEWAY_URL']+'/api/'+path,
+        result = await request.app.state.backend_client.request(request.method, gateway_url+'/api/'+path,
                                       headers=backend_headers(request), content=bytes(content))
     except httpx.RequestError:
         raise HTTPException(503, 'The assessment service is temporarily unavailable. Please retry.')
