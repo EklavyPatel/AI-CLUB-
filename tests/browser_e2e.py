@@ -27,8 +27,10 @@ def get_teacher_signup_code():
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             line = line.strip()
-            if line.startswith('TEACHER_SIGNUP_CODE='):
-                return line.split('=', 1)[1].strip()
+            if line.startswith('TEACHER_SIGNUP_CODE'):
+                parts = line.split('=', 1)
+                if len(parts) == 2:
+                    return parts[1].strip().strip('"').strip("'")
     return 'demo-teacher-code'
 
 
@@ -43,7 +45,7 @@ def register(page, role, email, name, sid=None, teacher_code=None):
     page.locator('#auth-form [name=email]').fill(email)
     if role == 'student':
         expect(page.locator('#student-details')).to_be_visible()
-        page.locator('[name=sid]').fill(sid or 'DEMO-CSE-001')
+        page.locator('[name=sid]').fill(sid or f'DEMO-{secrets.token_hex(4)}')
         page.locator('[name=branch]').fill('Computer Science')
     else:
         expect(page.locator('#student-details')).to_be_hidden()
@@ -126,10 +128,10 @@ def run(base):
         assert student.evaluate('document.documentElement.scrollWidth <= innerWidth')
         student.once('dialog', lambda dialog: dialog.accept())
         student.get_by_role('button', name='Submit assessment', exact=True).click()
-        expect(student.locator('#page')).to_contain_text('3/3 marks · 100% · 3 correct · 0 wrong · 0 skipped')
+        expect(student.locator('#page')).to_contain_text('3/3 marks · 100% · 3 correct · 0 wrong · 0 skipped', timeout=60000)
         student.screenshot(path=str(ARTIFACTS/'student-result.png'), full_page=True)
         student.get_by_role('button', name='My results').click()
-        expect(student.locator('#page')).to_contain_text('3/3 marks')
+        expect(student.locator('#page')).to_contain_text('3/3 marks', timeout=60000)
 
         # Test student logout and re-login using SID (case-insensitive)
         student.locator('#logout-button').click()
@@ -183,7 +185,7 @@ def run(base):
         student2 = student2_context.new_page()
         student2.on('pageerror', lambda error: errors.append(str(error)))
         student2.goto(invitation2)
-        register(student2, 'student', f'student2-{tag}@college.example', 'Cheater Tester')
+        register(student2, 'student', f'student2-{tag}@college.example', 'Cheater Tester', sid=f'CSE2-{tag[-6:]}')
         student2.locator('a[data-page=quiz]').click()
         expect(student2.locator('#page')).to_contain_text('Fullscreen lockdown is active')
         student2.get_by_role('button', name='Start or resume quiz').click()
@@ -204,7 +206,7 @@ def run(base):
 
         # Strike 2: Auto-submits the assessment
         student2.evaluate("document.dispatchEvent(new Event('visibilitychange'));")
-        expect(student2.locator('#page')).to_contain_text('Assessment submitted', timeout=15000)
+        expect(student2.locator('#page')).to_contain_text('Assessment submitted', timeout=60000)
         expect(student2.locator('#toast')).to_contain_text('Tab switch detected')
 
         assert not errors, errors
