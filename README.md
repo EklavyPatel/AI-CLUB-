@@ -1,94 +1,121 @@
-# Beyond the Number
+# Beyond the Number · College assessments
 
-A private assessment workspace for teachers and students, by **Eklavy & Keshav**.
+A FastAPI and SQLAlchemy assessment application for college teachers and students, by Eklavy Patel. The MCQ workflow implements `MCQ-Grading-Report.md`: a frozen teacher-approved answer key, stable option IDs, one final submission, exact-set multiple-select grading, and a compact final result.
 
 ## Run locally
+
+Python 3.11 or later:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn main:app --reload
 ```
 
-Open **http://127.0.0.1:8000**. Do not use VS Code Live Server: uploads, accounts, and assessments need the Python API. Existing SQLite data is preserved; the new account/class/quiz tables are created on startup.
+Open http://127.0.0.1:8000. Local development uses the existing SQLite database. Existing accounts, classrooms and legacy quizzes are preserved. New tables are created at application startup. Copy `.env.example` to `.env` to configure a different database; `.env` is loaded automatically.
 
 ## Teacher workflow
 
-1. Create an account with the **Teacher** role, then sign in using **Teacher login**.
-2. Open **My classrooms** and create a class.
-3. Select the classroom and enter a student's email to create an invitation.
-4. Copy and share the invitation link. It is bound to that email, expires after seven days, and can be accepted once. **The app does not send email automatically.**
-5. Open **Question bank**, set a quiz title, overall time, and default question time, then upload a JSON array or load the sample.
-6. Click **Validate JSON** to show individual question-time editors. Each question's `expected_time_s` overrides the default. Publish the quiz to the selected class.
-7. Open **Class insights** to search students, view marks and confidence performance, inspect answer journals, and export filtered CSV results.
+1. Create a teacher account and create a classroom.
+2. Each classroom card shows an **8-character classroom code**. Click **Copy code** and share it with your students. Any signed-in student can enter the code in **My classrooms → Join your classroom** and join immediately. Codes are reusable and case-insensitive; existing classrooms receive a code automatically. Email-bound invitation links remain available as an optional alternative.
+3. Open **Question bank**, select a text PDF or JSON question bank, and review every extracted question and correct answer. A sample PDF is available on the upload page and at `static/question-bank-template.pdf`.
+4. Set the title, overall time and number of questions per student. Choose fewer questions than the bank contains to support multiple distinct subsets. For example, a bank of 20 questions with 10 questions per student supports 184,756 distinct sets. A bank of 5 with 3 per student supports 10.
+5. Approve the key and publish to the selected class. Publishing creates a new immutable test; it never replaces an existing test or paper.
+6. Open **Class insights** to see enrollment, submitted/in-progress counts, final marks and class average. Export results as CSV.
 
-Only the owning teacher can invite students, publish quizzes, or view class results. Teachers cannot view another teacher's classrooms or results. Enrolled students without responses appear as unassessed.
+A distinct subset is reserved transactionally for every student. Question order and option order are shuffled and stored. If the bank's distinct subsets are exhausted, the next student receives an explicit message rather than a repeated set. Publish a larger bank or change the number per student for a new test. Capacity is checked against existing enrollment at publication; later enrollment can still exhaust it.
 
-## Student workflow
+## PDF format
 
-1. Open the teacher's invitation link.
-2. Create a **Student** account or sign in using **Student login**, with the exact invited email address.
-3. Join the classroom, select its quiz, and open **Practice studio**.
-4. Start or resume the quiz. Each quiz permits one attempt per student.
-5. Answer each question and choose Sure, Unsure, or Guessing. Questions can be skipped, but not revisited.
-6. View your own raw marks, confidence performance, and submitted-answer journal in **My performance**.
+Use a PDF with selectable text, one option per line, numbered questions and an answer after each question:
 
-Students cannot upload quizzes, view class analytics, or view another student's results. Email addresses identify accounts; email verification and password-reset email delivery are not implemented.
+```text
+1. Which structure uses first in, first out ordering?
+A. Stack
+B. Queue
+C. Tree
+Answer: B
 
-## Marks and confidence performance
+2. Which are programming languages?
+A. Python
+B. CSS
+C. Java
+Answer: A, C
+```
 
-These are separate numbers:
+Questions and options can wrap across lines. Use A–H option IDs. Multiple answers create a multiple-select question. Imports support at most 3 MB, 100 pages and 200 questions. Scanned/image-only PDFs require OCR before import; encrypted PDFs must be unlocked first. The importer rejects missing/invalid keys and never guesses answers. It returns a reviewable draft, not a published test. Review and edit its JSON or use the answer-key controls before publishing. Original PDFs are processed in memory and not retained.
 
-- **Raw marks:** every correct, on-time answer earns one mark, regardless of confidence. One correct answer out of four gives **1/4 = 25%**, even if it was a guess.
-- **Confidence performance:** sum each question's weighted credit, divide by the total regular questions, and multiply by 100.
-
-| Answer within its deadline | Performance credit |
-| --- | --- |
-| Correct + Sure | 1.00 |
-| Correct + Unsure | 0.85 |
-| Correct + Guessing | 0.75 |
-| Wrong, skipped, expired, or unanswered | 0 |
-
-Four correct, sure, on-time answers out of four give **100%**. One correct guessing answer out of four gives **25% raw marks** and **18.75% confidence performance**. These weights are an explicit assessment policy, not a validated measurement of mastery. Answering faster within the allowed time does not reduce credit.
-
-Diagnostic states and secure/fragile counts remain additional evidence; they never replace raw marks. Probe questions are excluded from marks and timed question counts. The original diagnostic engine retains probe classification for its unit tests; the timed quiz flow currently assesses regular questions and does not run extra probes.
-
-## Timing and account protection
-
-The server records quiz start, overall deadline, current question start, and question deadline. Answer times come from the server; the client cannot claim a shorter time. Refreshing or resuming does not reset a deadline. Only the active question text/options are released to a student. Late answers do not score. Duplicate submissions cannot answer the next question. The overall deadline takes priority over an individual question deadline.
-
-Passwords use salted scrypt hashes. Login uses revocable, hashed, seven-day sessions in HttpOnly, SameSite=Strict cookies (Secure when served over HTTPS). Cross-origin writes are rejected and API responses use `Cache-Control: no-store`. Application login throttling is per process. For hosting, use HTTPS and a persistent database. `DATABASE_URL` selects the database; SQLite is the local default.
-
-Legacy public upload, submit, and demo-seed endpoints no longer allow unauthenticated assessment changes. Existing demo records are not automatically assigned to a new teacher account.
-
-## Question format
+JSON question format:
 
 ```json
 [
   {
     "item_id": "q1",
-    "skill_id": "recursion",
-    "stem": "What stops a recursive function?",
-    "expected_time_s": 30,
+    "skill_id": "computer_science",
+    "kind": "single",
+    "stem": "Which structure uses FIFO ordering?",
     "options": [
-      {"id": "A", "text": "A base case", "is_correct": true},
-      {"id": "B", "text": "Calling itself", "is_correct": false}
+      {"id": "A", "text": "Stack", "is_correct": false},
+      {"id": "B", "text": "Queue", "is_correct": true}
     ]
   }
 ]
 ```
 
-Question IDs are namespaced per published quiz, so different teachers can reuse template IDs without overwriting each other's questions. Correct-option flags are never included in student question responses.
+Use `"kind": "multiple"` for exact-set multiple-select questions. Question and option IDs are stable even when displayed in a different order. Questions are namespaced per published test.
 
-## Tests
+## Student workflow
+
+1. Sign up or sign in as a student. In **My classrooms**, enter your teacher's **8-character classroom code** and click **Join classroom**. Enrollment is immediate, and the class appears in your list. If the teacher shared an email invitation instead, use the exact invited email.
+2. Select the assessment, open **Practice studio**, and start. Starting reserves one paper and starts the server-enforced timer.
+3. Select answers, navigate between questions and clear choices. Drafts autosave to the server. Refresh and choose **Start or resume** to recover the same paper, selections and deadline.
+4. Submit once when ready. On expiry, the saved draft is graded; unsaved late changes are not accepted. If the browser is closed, grading occurs on the next resume or results read.
+5. See a result such as **17/20 marks · 85% · 17 correct · 2 wrong · 1 skipped** in the completion screen or **My performance**.
+
+Every correct answer earns +1; wrong or skipped answers earn 0. Multiple-select requires every correct option and no extras. Confidence and explanations are not required. Existing timed diagnostic quizzes retain their original per-question deadlines and confidence policy.
+
+## Production: Vercel + Cloudflare D1
+
+Live application: https://beyond-the-number-college.vercel.app
+
+Vercel runs `main:app`, which selects the FastAPI gateway when `D1_GATEWAY_URL` is configured. Vercel serves the UI, handles authenticated PDF extraction and forwards application API requests to a private Cloudflare Worker. The Worker uses a native D1 binding and parameterized SQL. Its shared gateway secret stays in encrypted platform configuration; no database or Worker credential is exposed to browsers.
+
+- Database: `beyond-the-number-college`, D1 ID `2122d511-1bd0-4f6e-a740-bc3e23190d0e`, created in APAC.
+- Worker: `beyond-the-number-college-api`; source and idempotent schema are in `cloudflare/`.
+- Vercel: `beyond-the-number-college`, FastAPI preset with Python 3.12.
+- Production configuration: `D1_GATEWAY_URL` and sensitive `D1_GATEWAY_TOKEN`. The Worker has `DB` and secret `API_TOKEN` bindings. Never put real secrets in source files or chat.
+- `/api/ready` checks the connection through to D1. Session cookies are HttpOnly, SameSite=Strict and Secure on HTTPS. Cross-origin writes are rejected by the gateway.
+- Published banks and assigned papers are frozen. Unique database constraints reserve one attempt per student and a distinct subset per test. Conditional writes prevent duplicate final grades and late draft updates; expired grading uses a compare-and-swap against the last saved draft. Invitations use a D1 batch transaction.
+- D1 stores accounts, classrooms, invitations, bank text, paper assignments, drafts and final results. Original PDF files are processed in memory and not retained. The extracted bank text must be under 1 MB.
+
+Local development without the gateway variables retains the original SQLAlchemy/SQLite application. Existing local SQLite records are preserved; they are not automatically copied to the new production D1 database. Production starts with new accounts and classrooms. The production MCQ application uses a salted PBKDF2 password hash; local legacy accounts retain their salted scrypt hashes.
+
+Deployment steps and resource IDs are recorded in `DEPLOYMENT.md`. For a new environment, apply `cloudflare/schema.sql` to a separate D1 database, upload the Worker with its D1 binding and a new secret, and configure a separate Vercel project or preview environment. Never point preview tests at the college's production database.
+
+Email verification/password-reset delivery and institution-level teacher provisioning are not implemented. Invitations are shared manually. No performance or concurrent-class capacity claim is made without load testing the expected college usage. Configure the institution's backup/retention policy in Cloudflare before high-stakes exams.
+
+## Verification
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q
+python -m pytest -q
 node tests/check_workspace.cjs
+node tests/test_cloudflare.mjs
+# Starts an isolated server/database and uses Chrome; see script flags.
+python tests/browser_e2e.py
 ```
 
-Tests cover diagnostic stories, marks, roles, invitation email/expiry/reuse, class isolation, server timing, question-order enforcement, raw/confidence scores, static assets, and frontend rendering/logic. The Node checks use a minimal DOM stub; they do not replace visual browser testing.
+The Worker integration suite also executes the production route code against SQLite semantics. API tests cover accounts, roles, invitations, class privacy, PDF import/rejection, distinct concurrent paper allocation, option-ID grading, exact sets, frozen papers, autosave/resume, validation, deadline enforcement, and duplicate final submissions. The browser test exercises teacher PDF upload and publication, invited student completion/resume, final result, and teacher results/CSV. It uses a temporary database and does not alter college records.
 
 API documentation: http://127.0.0.1:8000/docs
+
+Classroom-code checks: stable unique 8-character codes, automatic support for existing classrooms, lowercase/whitespace normalization, invalid/unknown code rejection, student-only joining, code privacy, and safe repeated enrollment. Run `python tests/browser_room_codes.py --base-url https://YOUR-DEPLOYMENT` to verify the new flow in a real browser.
+
+## Measured capacity
+
+A controlled test passed for **300 concurrent simulated, already-authenticated students**: 1,500 assessment requests, zero failures, 300 different question sets and 300 correctly saved grades. Peak synchronized p95 response times were 5–7 seconds. See `CAPACITY-REPORT.md` for the exact methodology, initial cold-connection failure and limits; this is not a maximum-capacity guarantee or a simultaneous-registration test.
+
+### Student SID and branch
+
+Student sign-in and registration include optional SID (up to 64 characters) and branch (up to 128 characters). Entering either during a successful sign-in saves or updates that field; leaving it blank preserves the saved value. Teacher accounts do not use these fields. Classroom marks tables and CSV exports include SID and branch, and the diagnostic roster search includes both. Existing accounts retain their email/password and start with blank details.

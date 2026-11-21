@@ -40,9 +40,10 @@ state.query='no-match';if(filteredStudents().length!==0)throw new Error('Search 
 state.query='';state.filter='Deep Misconception';if(filteredStudents().length!==0)throw new Error('State filter failed');
 navigate('upload');$('#json-editor').value=JSON.stringify(sample);
 if(parseUpload().length!==2)throw new Error('Template invalid');
-showQuestionTimers(sample);if(!$('#question-times').innerHTML.includes('data-question-time'))throw new Error('Per-question time editor missing');
+showQuestionTimers(sample);if(!$('#question-times').innerHTML.includes('data-key-question'))throw new Error('Answer key review missing');
 $('#json-editor').value='{}';let rejected=false;try{parseUpload()}catch{rejected=true}if(!rejected)throw new Error('Invalid upload accepted');
 authScreen();if(!$('#auth-screen').innerHTML.includes('Teacher login'))throw new Error('Teacher login missing');
 if(!$('#auth-screen').innerHTML.includes('Student login'))throw new Error('Student login missing');
+if($('#auth-screen').innerHTML.includes('Admin login'))throw new Error('Admin login must not be present');
 `, context);
-console.log('Workspace checks passed: teacher/student views, login choices, escaped questions, both timers, roster filters, uploads, question time editor.');
+console.log('Workspace checks passed: teacher/student views, login choices, escaped questions, both timers, roster filters, uploads, answer key review.');

@@ -89,4 +89,4 @@ def login_cookie(response, request, db, account):
 
 
 def public_account(account):
-    return {'id': account.id, 'email': account.email, 'name': account.name, 'role': account.role}
+    return {'id': account.id, 'email': account.email, 'name': account.name, 'role': account.role, 'sid': account.sid, 'branch': account.branch}

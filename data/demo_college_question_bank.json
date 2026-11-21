@@ -1,0 +1,146 @@
+[
+  {
+    "item_id": "demo_q01",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "Which data structure follows first in, first out (FIFO) ordering?",
+    "options": [
+      {"id": "A", "text": "Stack", "is_correct": false},
+      {"id": "B", "text": "Queue", "is_correct": true},
+      {"id": "C", "text": "Binary search tree", "is_correct": false},
+      {"id": "D", "text": "Heap", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q02",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "What is the worst-case time complexity of binary search on a sorted array of n elements?",
+    "options": [
+      {"id": "A", "text": "O(n)", "is_correct": false},
+      {"id": "B", "text": "O(n squared)", "is_correct": false},
+      {"id": "C", "text": "O(log n)", "is_correct": true},
+      {"id": "D", "text": "O(1)", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q03",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "Which SQL keyword retrieves rows from a table?",
+    "options": [
+      {"id": "A", "text": "SELECT", "is_correct": true},
+      {"id": "B", "text": "DELETE", "is_correct": false},
+      {"id": "C", "text": "DROP", "is_correct": false},
+      {"id": "D", "text": "UPDATE", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q04",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "What does HTTP status code 404 indicate?",
+    "options": [
+      {"id": "A", "text": "The request succeeded", "is_correct": false},
+      {"id": "B", "text": "A resource was created", "is_correct": false},
+      {"id": "C", "text": "An internal server error occurred", "is_correct": false},
+      {"id": "D", "text": "The requested resource was not found", "is_correct": true}
+    ]
+  },
+  {
+    "item_id": "demo_q05",
+    "skill_id": "computer_science_basics",
+    "kind": "multiple",
+    "stem": "Which of the following are programming languages? Select all correct answers.",
+    "options": [
+      {"id": "A", "text": "Python", "is_correct": true},
+      {"id": "B", "text": "JPEG", "is_correct": false},
+      {"id": "C", "text": "Java", "is_correct": true},
+      {"id": "D", "text": "PNG", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q06",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "What is the value of the Python expression len([10, 20, 30])?",
+    "options": [
+      {"id": "A", "text": "2", "is_correct": false},
+      {"id": "B", "text": "3", "is_correct": true},
+      {"id": "C", "text": "30", "is_correct": false},
+      {"id": "D", "text": "60", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q07",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "Which language primarily controls the visual styling of a web page?",
+    "options": [
+      {"id": "A", "text": "SQL", "is_correct": false},
+      {"id": "B", "text": "HTML", "is_correct": false},
+      {"id": "C", "text": "CSS", "is_correct": true},
+      {"id": "D", "text": "Bash", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q08",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "What is the decimal value of the binary number 1010?",
+    "options": [
+      {"id": "A", "text": "10", "is_correct": true},
+      {"id": "B", "text": "8", "is_correct": false},
+      {"id": "C", "text": "12", "is_correct": false},
+      {"id": "D", "text": "5", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q09",
+    "skill_id": "computer_science_basics",
+    "kind": "multiple",
+    "stem": "Which SQL statements modify stored row data? Select all correct answers.",
+    "options": [
+      {"id": "A", "text": "SELECT", "is_correct": false},
+      {"id": "B", "text": "INSERT", "is_correct": true},
+      {"id": "C", "text": "UPDATE", "is_correct": true},
+      {"id": "D", "text": "DELETE", "is_correct": true}
+    ]
+  },
+  {
+    "item_id": "demo_q10",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "Which condition normally stops a recursive function from calling itself indefinitely?",
+    "options": [
+      {"id": "A", "text": "A larger input value", "is_correct": false},
+      {"id": "B", "text": "A global variable", "is_correct": false},
+      {"id": "C", "text": "An import statement", "is_correct": false},
+      {"id": "D", "text": "A base case", "is_correct": true}
+    ]
+  },
+  {
+    "item_id": "demo_q11",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "Which memory is typically volatile and loses its contents when power is removed?",
+    "options": [
+      {"id": "A", "text": "An SSD", "is_correct": false},
+      {"id": "B", "text": "RAM", "is_correct": true},
+      {"id": "C", "text": "A hard disk", "is_correct": false},
+      {"id": "D", "text": "A DVD", "is_correct": false}
+    ]
+  },
+  {
+    "item_id": "demo_q12",
+    "skill_id": "computer_science_basics",
+    "kind": "single",
+    "stem": "What is the main purpose of a primary key in a relational database table?",
+    "options": [
+      {"id": "A", "text": "To encrypt every column", "is_correct": false},
+      {"id": "B", "text": "To store only text values", "is_correct": false},
+      {"id": "C", "text": "To uniquely identify each row", "is_correct": true},
+      {"id": "D", "text": "To automatically back up the database", "is_correct": false}
+    ]
+  }
+]

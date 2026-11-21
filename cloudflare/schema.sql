@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,name TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('teacher','student')),password_hash TEXT NOT NULL,sid TEXT NOT NULL DEFAULT '',branch TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires_ms INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_ms);
+CREATE TABLE IF NOT EXISTS classes (id TEXT PRIMARY KEY,name TEXT NOT NULL,teacher_id TEXT NOT NULL REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS classes_teacher ON classes(teacher_id);
+CREATE TABLE IF NOT EXISTS memberships (class_id TEXT NOT NULL REFERENCES classes(id),user_id TEXT NOT NULL REFERENCES users(id),PRIMARY KEY(class_id,user_id));
+CREATE TABLE IF NOT EXISTS invitations (token_hash TEXT PRIMARY KEY,class_id TEXT NOT NULL REFERENCES classes(id),email TEXT NOT NULL,expires_ms INTEGER NOT NULL,accepted INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS quizzes (id TEXT PRIMARY KEY,class_id TEXT NOT NULL REFERENCES classes(id),title TEXT NOT NULL,skill_id TEXT NOT NULL UNIQUE,total_time_s INTEGER NOT NULL,question_count INTEGER NOT NULL,bank TEXT NOT NULL,negative_marks REAL NOT NULL DEFAULT 0.0,schedule_mode TEXT NOT NULL DEFAULT 'instant',start_time_ms INTEGER,end_time_ms INTEGER);
+CREATE INDEX IF NOT EXISTS quizzes_class ON quizzes(class_id);
+CREATE TABLE IF NOT EXISTS attempts (id TEXT PRIMARY KEY,quiz_id TEXT NOT NULL REFERENCES quizzes(id),learner_id TEXT NOT NULL REFERENCES users(id),signature TEXT NOT NULL,questions TEXT NOT NULL,answers TEXT NOT NULL DEFAULT '{}',result TEXT,started_ms INTEGER NOT NULL,deadline_ms INTEGER NOT NULL,UNIQUE(quiz_id,learner_id),UNIQUE(quiz_id,signature));
+CREATE INDEX IF NOT EXISTS attempts_learner ON attempts(learner_id);
+CREATE TABLE IF NOT EXISTS login_limits (key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires_ms INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS classroom_codes (class_id TEXT PRIMARY KEY REFERENCES classes(id),code TEXT NOT NULL UNIQUE CHECK(length(code)=8));

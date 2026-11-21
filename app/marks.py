@@ -4,10 +4,35 @@ from collections import Counter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Item, Response
+from .models import Item, Response, Quiz, QuizAttempt, ExamPaper, ExamPolicy
 
 
 def compute_marks(db: Session, learner_id: str, skill_id: str) -> dict:
+    quiz = db.scalar(select(Quiz).where(Quiz.skill_id == skill_id))
+    policy = db.get(ExamPolicy, quiz.id) if quiz else None
+    if policy:
+        attempt = db.scalar(select(QuizAttempt).where(QuizAttempt.quiz_id == quiz.id, QuizAttempt.learner_id == learner_id))
+        paper = db.get(ExamPaper, attempt.id) if attempt else None
+        if paper and not attempt.finished:
+            from .auth import now
+            if now() >= attempt.deadline:
+                from .exams import owned_paper, payload
+                from .models import Account
+                locked_attempt, locked_paper = owned_paper(db, db.get(Account, learner_id), attempt.id)
+                payload(db, locked_attempt, locked_paper)
+                paper = locked_paper
+        result = paper.result if paper else None
+        neg = policy.negative_marks if policy else 0.0
+        result = result or {'earned': 0, 'maximum': policy.question_count, 'correct': 0, 'wrong': 0, 'skipped': policy.question_count, 'percentage': 0}
+        penalty_desc = f'-{neg} per wrong answer' if neg > 0 else '0 wrong or skipped'
+        return {**result, 'mode': 'mcq', 'learner_id': learner_id, 'skill_id': skill_id,
+                'score': result['earned'], 'out_of': result['maximum'],
+                'answered': result['correct'] + result['wrong'], 'unanswered': result['skipped'],
+                'secure_marks': 0, 'fragile_marks': 0, 'same_number_gap': 0,
+                'performance_percentage': result['percentage'], 'wrong_by_story': {},
+                'negative_marks': neg,
+                'scoring_formula': f'+1 correct; {penalty_desc}. Multiple-select requires the exact correct set.',
+                'status': 'graded' if paper and paper.result else 'in_progress' if paper else 'not_started'}
     items = set(db.scalars(select(Item.item_id).where(
         Item.skill_id == skill_id, Item.is_probe.is_(False))))
     responses = db.scalars(select(Response).where(

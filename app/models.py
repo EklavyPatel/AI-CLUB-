@@ -12,7 +12,7 @@ a clue, not a verdict: its story is only decided once enough evidence exists.
 """
 from datetime import datetime
 
-from sqlalchemy import (JSON, Boolean, DateTime, ForeignKey, Integer, String,
+from sqlalchemy import (JSON, Boolean, DateTime, Float, ForeignKey, Integer, String,
                         Text, UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,6 +68,12 @@ class Classroom(Base):
     name: Mapped[str] = mapped_column(String(128))
 
 
+class ClassroomCode(Base):
+    __tablename__ = 'classroom_codes'
+    class_id: Mapped[str] = mapped_column(ForeignKey('classrooms.class_id'), primary_key=True)
+    code: Mapped[str] = mapped_column(String(8), unique=True)
+
+
 class Learner(Base):
     __tablename__ = "learners"
     learner_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -116,6 +122,8 @@ class Account(Base):
     name: Mapped[str] = mapped_column(String(128))
     role: Mapped[str] = mapped_column(String(16))
     password_hash: Mapped[str] = mapped_column(Text)
+    sid: Mapped[str] = mapped_column(String(64), default='', server_default='')
+    branch: Mapped[str] = mapped_column(String(128), default='', server_default='')
 
 
 class LoginSession(Base):
@@ -167,3 +175,25 @@ class QuizAttempt(Base):
     current_index: Mapped[int] = mapped_column(Integer, default=0)
     question_started_at: Mapped[datetime] = mapped_column(DateTime)
     question_deadline: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ExamPolicy(Base):
+    __tablename__ = 'exam_policies'
+    quiz_id: Mapped[str] = mapped_column(ForeignKey('quizzes.id'), primary_key=True)
+    question_count: Mapped[int] = mapped_column(Integer)
+    bank: Mapped[list] = mapped_column(JSON)
+    negative_marks: Mapped[float] = mapped_column(Float, default=0.0, server_default='0.0')
+    schedule_mode: Mapped[str] = mapped_column(String(16), default='instant', server_default='instant')
+    start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ExamPaper(Base):
+    __tablename__ = 'exam_papers'
+    __table_args__ = (UniqueConstraint('quiz_id', 'signature', name='uq_exam_set'),)
+    attempt_id: Mapped[str] = mapped_column(ForeignKey('quiz_attempts.id'), primary_key=True)
+    quiz_id: Mapped[str] = mapped_column(ForeignKey('quizzes.id'), index=True)
+    signature: Mapped[str] = mapped_column(String(64))
+    questions: Mapped[list] = mapped_column(JSON)
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)

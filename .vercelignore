@@ -1,0 +1,10 @@
+.git
+.venv
+.env
+*.db
+*.sqlite3
+.pytest_cache
+__pycache__
+tests
+artifacts
+MCQ-Grading-Report.md

@@ -1,0 +1,6 @@
+{
+  "name": "beyond-the-number-college-api",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-13",
+  "d1_databases": [{"binding": "DB", "database_name": "beyond-the-number-college", "database_id": "2122d511-1bd0-4f6e-a740-bc3e23190d0e"}]
+}

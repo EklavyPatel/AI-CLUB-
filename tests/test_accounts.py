@@ -200,3 +200,159 @@ def test_quiz_time_overrides_and_class_isolation(client):
     attempt = student.post(f"/api/quizzes/{new_quiz['id']}/start").json()
     assert attempt['question']['stem'] == 'First?'
     assert answer(student, attempt)['question']['stem'] == 'Second?'
+
+
+def test_classroom_codes_join_and_privacy(client):
+    teacher, _ = account('teacher')
+    student, info = account('student')
+    other_teacher, _ = account('teacher')
+    response = teacher.post('/api/classes', json={'name': 'Join by code'})
+    code = response.json()['join_code']
+    class_id = response.json()['id']
+    assert len(code) == 8 and code.isalnum() and code == code.upper()
+    assert next(c for c in teacher.get('/api/classes').json() if c['id'] == class_id)['join_code'] == code
+    assert other_teacher.post('/api/classes/join', json={'code': code}).status_code == 403
+    assert student.post('/api/classes/join', json={'code': 'short'}).status_code == 422
+    assert student.post('/api/classes/join', json={'code': '00000000'}).status_code == 404
+    for _ in range(2):
+        joined = student.post('/api/classes/join', json={'code': ' '+code.lower()+' '})
+        assert joined.status_code == 200 and joined.json()['class_id'] == class_id
+    assert student.get('/api/classes').json() == [{'id': class_id, 'name': 'Join by code'}]
+    assert len(teacher.get(f'/api/classes/{class_id}/students').json()) == 1
+    assert other_teacher.get('/api/classes').json() == []
+    assert teacher.get(f'/api/classes/{class_id}/students').json()[0]['id'] == info['id']
+
+
+def test_existing_classroom_gets_stable_code(client):
+    from app.models import Classroom, ClassOwner
+    teacher, info = account('teacher')
+    old_id = secrets.token_hex(16)
+    with SessionLocal() as db:
+        db.add(Classroom(class_id=old_id, name='Existing class'))
+        db.flush()
+        db.add(ClassOwner(class_id=old_id, teacher_id=info['id']))
+        db.commit()
+    first = teacher.get('/api/classes').json()[0]['join_code']
+    assert len(first) == 8
+    assert teacher.get('/api/classes').json()[0]['join_code'] == first
+
+
+def test_student_identity_login_and_teacher_results(client):
+    teacher, _ = account('teacher')
+    student, info = account('student')
+    credentials = {'email': info['email'], 'password': 'a-secure-password',
+                   'sid': '  CSE001  ', 'branch': ' Computer Science '}
+    assert student.post('/api/auth/login', json={**credentials, 'password': 'wrong-password'}).status_code == 401
+    assert student.get('/api/auth/me').json()['sid'] == ''
+    signed_in = student.post('/api/auth/login', json=credentials)
+    assert signed_in.status_code == 200
+    assert signed_in.json()['sid'] == 'CSE001'
+    assert signed_in.json()['branch'] == 'Computer Science'
+    assert student.post('/api/auth/login', json={**credentials, 'sid': '', 'branch': ''}).json()['sid'] == 'CSE001'
+    assert student.post('/api/auth/login', json={**credentials, 'sid': 'x'*65}).status_code == 422
+    class_id = classroom(teacher)
+    enroll(teacher, student, info, class_id)
+    quiz = publish(teacher, class_id)
+    roster = teacher.get(f'/api/classes/{class_id}/students').json()
+    assert roster[0]['sid'] == 'CSE001'
+    assert roster[0]['branch'] == 'Computer Science'
+    student.post(f"/api/quizzes/{quiz['id']}/start")
+    report = teacher.get(f"/api/teacher/heatmap/{quiz['skill_id']}").json()
+    row = next(s for s in report['students'] if s['learner_id'] == info['id'])
+    assert row['sid'] == 'CSE001'
+    assert row['branch'] == 'Computer Science'
+
+
+def test_student_sid_login_and_case_insensitivity(client):
+    teacher, _ = account('teacher')
+    student, info = account('student')
+    res = student.post('/api/auth/login', json={'email': info['email'], 'password': 'a-secure-password', 'sid': 'CS2024_042', 'branch': 'AI & DS'})
+    assert res.status_code == 200
+    assert res.json()['sid'] == 'CS2024_042'
+    assert res.json()['branch'] == 'AI & DS'
+
+    student.post('/api/auth/logout')
+    assert student.get('/api/auth/me').status_code == 401
+
+    sid_client = TestClient(app)
+    login_sid = sid_client.post('/api/auth/login', json={'sid': 'CS2024_042', 'password': 'a-secure-password'})
+    assert login_sid.status_code == 200
+    assert login_sid.json()['email'] == info['email']
+    assert login_sid.json()['sid'] == 'CS2024_042'
+
+    sid_lower_client = TestClient(app)
+    login_email_as_sid = sid_lower_client.post('/api/auth/login', json={'email': 'cs2024_042', 'password': 'a-secure-password'})
+    assert login_email_as_sid.status_code == 200
+    assert login_email_as_sid.json()['email'] == info['email']
+
+    bad_pass = TestClient(app).post('/api/auth/login', json={'sid': 'CS2024_042', 'password': 'wrong-password'})
+    assert bad_pass.status_code == 401
+    assert 'incorrect' in bad_pass.json()['detail']
+
+    bad_sid = TestClient(app).post('/api/auth/login', json={'sid': 'NONEXISTENT_SID', 'password': 'a-secure-password'})
+    assert bad_sid.status_code == 401
+    assert 'not found' in bad_sid.json()['detail'].lower()
+
+
+def test_learner_profile_and_teacher_insight_sid(client):
+    teacher, _ = account('teacher')
+    student, info = account('student')
+    student.post('/api/auth/login', json={'email': info['email'], 'password': 'a-secure-password', 'sid': 'STU999', 'branch': 'ECE'})
+    class_id = classroom(teacher)
+    enroll(teacher, student, info, class_id)
+    quiz = publish(teacher, class_id, 1)
+
+    profile = teacher.get(f"/api/profile/{info['id']}/{quiz['skill_id']}").json()
+    assert profile['sid'] == 'STU999'
+    assert profile['branch'] == 'ECE'
+    assert profile['display_name'] == info['name']
+    assert profile['email'] == info['email']
+
+    attempt = student.post(f"/api/quizzes/{quiz['id']}/start").json()
+    answer(student, attempt)
+
+    profile_after = teacher.get(f"/api/profile/{info['id']}/{quiz['skill_id']}").json()
+    assert profile_after['sid'] == 'STU999'
+    assert profile_after['branch'] == 'ECE'
+    assert profile_after['display_name'] == info['name']
+    assert profile_after['email'] == info['email']
+
+    heatmap = teacher.get(f"/api/teacher/heatmap/{quiz['skill_id']}").json()
+    student_row = next(s for s in heatmap['students'] if s['learner_id'] == info['id'])
+    assert student_row['sid'] == 'STU999'
+    assert student_row['branch'] == 'ECE'
+    assert isinstance(student_row['sid'], str)
+    assert isinstance(student_row['branch'], str)
+
+
+def test_teacher_remove_student_from_class_and_admin_rejected(client):
+    # Admin role is not allowed and must fail validation
+    invalid_admin = TestClient(app).post('/api/auth/register', json={
+        'name': 'Admin User', 'email': 'admin@college.example', 'password': 'a-secure-password', 'role': 'admin'
+    })
+    assert invalid_admin.status_code == 422
+
+    teacher_client, teacher_info = account('teacher')
+    other_teacher, _ = account('teacher')
+    student_client, student_info = account('student')
+    student_client.post('/api/auth/login', json={'email': student_info['email'], 'password': 'a-secure-password', 'sid': 'SID_TEST', 'branch': 'IT'})
+
+    class_id = classroom(teacher_client)
+    enroll(teacher_client, student_client, student_info, class_id)
+    quiz = publish(teacher_client, class_id, 1)
+    attempt = student_client.post(f"/api/quizzes/{quiz['id']}/start").json()
+    answer(student_client, attempt)
+
+    # Admin endpoints no longer exist
+    assert teacher_client.get('/api/admin/students').status_code == 404
+    assert student_client.get('/api/admin/students').status_code == 404
+
+    # Other teacher cannot remove student from this class
+    assert other_teacher.delete(f"/api/classes/{class_id}/students/{student_info['id']}").status_code == 403
+
+    # Classroom teacher can remove student from their class
+    remove_from_class = teacher_client.delete(f"/api/classes/{class_id}/students/{student_info['id']}")
+    assert remove_from_class.status_code == 200
+
+    assert not any(s['id'] == student_info['id'] for s in teacher_client.get(f'/api/classes/{class_id}/students').json())
+    assert student_client.get('/api/auth/me').status_code == 200

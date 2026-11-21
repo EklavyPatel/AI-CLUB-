@@ -5,7 +5,7 @@ from typing import List
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .auth import access_skill, current_account, teacher, owns_class
@@ -18,6 +18,8 @@ from .models import Item, Misconception, Option, Profile, Response
 from .question_bank import upsert_bank, upsert_item
 from .schemas import ItemCreate, ResponseSubmit
 from .seed import seed_database
+from .exams import router as exams_router
+from .pdf_import import router as pdf_router
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 STATES = ["Secure", "Lucky / Fragile", "Careless Slip", "Deep Misconception"]
@@ -26,17 +28,38 @@ STATES = ["Secure", "Lucky / Fragile", "Careless Slip", "Deep Misconception"]
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Add profile fields to existing installations without changing saved accounts.
+    from sqlalchemy import inspect, text
+    columns = {c['name'] for c in inspect(engine).get_columns('accounts')}
+    with engine.begin() as connection:
+        for field, size in [('sid', 64), ('branch', 128)]:
+            if field not in columns:
+                connection.execute(text(f"ALTER TABLE accounts ADD COLUMN {field} VARCHAR({size}) NOT NULL DEFAULT ''"))
+    # Add negative marking and calendar scheduling to existing exam_policies
+    if 'exam_policies' in inspect(engine).get_table_names():
+        ep_cols = {c['name'] for c in inspect(engine).get_columns('exam_policies')}
+        with engine.begin() as connection:
+            if 'negative_marks' not in ep_cols:
+                connection.execute(text("ALTER TABLE exam_policies ADD COLUMN negative_marks FLOAT NOT NULL DEFAULT 0.0"))
+            if 'schedule_mode' not in ep_cols:
+                connection.execute(text("ALTER TABLE exam_policies ADD COLUMN schedule_mode VARCHAR(16) NOT NULL DEFAULT 'instant'"))
+            if 'start_time' not in ep_cols:
+                connection.execute(text("ALTER TABLE exam_policies ADD COLUMN start_time DATETIME"))
+            if 'end_time' not in ep_cols:
+                connection.execute(text("ALTER TABLE exam_policies ADD COLUMN end_time DATETIME"))
     yield
 
 
 app = FastAPI(
     title="Beyond the Number - Diagnostic Assessment API",
-    description="Treats a wrong answer as a clue, not a verdict. By Eklavy & Keshav.",
+    description="Treats a wrong answer as a clue, not a verdict. By Eklavy Patel.",
     version="3.0.0",
     lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)
+app.include_router(exams_router)
+app.include_router(pdf_router)
 
 
 @app.middleware("http")
@@ -65,6 +88,15 @@ def read_index():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get('/api/ready')
+def ready(db: Session = Depends(get_db)):
+    try:
+        db.execute(text('SELECT 1'))
+    except Exception:
+        raise HTTPException(503, 'Database is unavailable.')
+    return {'status': 'ready'}
 
 
 # ---------- question bank ----------
@@ -107,14 +139,23 @@ def submit_response(sub: ResponseSubmit, account: Account = Depends(current_acco
 def get_learner_profile(learner_id: str, skill_id: str, db: Session = Depends(get_db), account: Account = Depends(current_account)):
     access_skill(db, account, skill_id, learner_id)
     marks = compute_marks(db, learner_id, skill_id)
+    student_acc = db.get(Account, learner_id)
+    learner_row = db.get(Learner, learner_id) if not student_acc else None
+    display_name = student_acc.name if student_acc else (learner_row.display_name if learner_row else learner_id)
+    sid = (student_acc.sid or '') if student_acc else ''
+    branch = (student_acc.branch or '') if student_acc else ''
+    email = student_acc.email if student_acc else None
+
     p = db.get(Profile, (learner_id, skill_id))
     if not p:
         return {"learner_id": learner_id, "skill_id": skill_id, "state": "Unassessed",
+                "display_name": display_name, "sid": sid, "branch": branch, "email": email,
                 "dominant_misconception": None, "evidence_count": 0, "stories": {},
                 "evidence_needed": None, "misconception_description": None, "remediation": None, "marks": marks}
     m = db.get(Misconception, p.dominant_misconception) if p.dominant_misconception else None
     return {
         "learner_id": p.learner_id, "skill_id": p.skill_id, "state": p.state, "marks": marks,
+        "display_name": display_name, "sid": sid, "branch": branch, "email": email,
         "dominant_misconception": p.dominant_misconception, "evidence_count": p.evidence_count,
         "stories": p.stories or {}, "evidence_needed": p.evidence_needed,
         "misconception_description": m.description if m else None,
@@ -173,6 +214,8 @@ def get_teacher_heatmap(skill_id: str, db: Session = Depends(get_db), account: A
             {"learner_id": p.learner_id, "state": p.state,
              "display_name": accounts[p.learner_id].name if p.learner_id in accounts else p.learner_id,
              "email": accounts[p.learner_id].email if p.learner_id in accounts else None,
+             "sid": (accounts[p.learner_id].sid or '') if p.learner_id in accounts else '',
+             "branch": (accounts[p.learner_id].branch or '') if p.learner_id in accounts else '',
              "dominant_misconception": p.dominant_misconception or "None",
              "evidence_count": p.evidence_count,
              "marks": compute_marks(db, p.learner_id, skill_id),
