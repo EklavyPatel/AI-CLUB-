@@ -20,7 +20,8 @@ TEST_PASSWORD=secrets.token_urlsafe(24)
 
 
 def register(page, role, email, name, sid=None):
-    page.get_by_role('button', name='Create an account', exact=True).click()
+    page.locator('#auth-screen').wait_for(timeout=30000)
+    page.locator('#auth-toggle').click()
     page.locator('[name=name]').fill(name)
     page.locator(f'[name=role][value={role}]').check()
     page.locator('#auth-form [name=email]').fill(email)
@@ -90,6 +91,7 @@ def run(base):
                 student.get_by_role('button', name='Next →', exact=True).click()
         deadline_text = student.locator('#overall-timer').inner_text()
         assert deadline_text != '…'
+        student.wait_for_timeout(1500)
         student.reload()
         try:
             expect(student.locator('#account-name')).to_have_text('College Student', timeout=60000)

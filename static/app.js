@@ -193,7 +193,7 @@ async function action(button) {
         if(confirm(`Are you sure you want to remove ${studentName} from this classroom?`)){
             await api(`/api/classes/${state.classId}/students/${button.dataset.learner}`,{method:'DELETE'});
             toast(`Student ${studentName} removed from classroom.`);
-            await loadSkills();await refresh();
+            await loadSkills();await refresh();render();
         }
     }
     if(name==='skip')await timedSubmit(null,'Guessing');
@@ -391,6 +391,7 @@ async function openWorkspace() {
     await loadSkills();await refresh();
     if(state.inviteToken&&!isTeacher){try{await joinClass(state.inviteToken);}catch(e){showError(e);navigate('classes');}}
     $('#connection').textContent='Assessment server online';$('#connection').classList.add('online');
+    render();
 }
 function examInsights(){
     const students=state.heatmap.students||[],graded=students.filter(s=>s.marks.status==='graded');
@@ -432,6 +433,7 @@ async function submitExam() {
 }
 let isUnloading=false;
 window.addEventListener('beforeunload',()=>{isUnloading=true;});
+window.addEventListener('pagehide',()=>{isUnloading=true;});
 function checkFullscreenExit(){
     const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
     if(isExamFullscreen&&!inFs&&state.account?.role==='student'&&state.attempt&&!state.attempt.finished&&state.page==='quiz'&&!isUnloading){
@@ -443,11 +445,17 @@ function checkFullscreenExit(){
 }
 document.addEventListener('fullscreenchange',checkFullscreenExit);
 document.addEventListener('webkitfullscreenchange',checkFullscreenExit);
+let tabSwitchTimer=null;
 document.addEventListener('visibilitychange',()=>{
+    if(tabSwitchTimer){clearTimeout(tabSwitchTimer);tabSwitchTimer=null;}
     if(!isUnloading&&document.hidden&&state.account?.role==='student'&&state.attempt&&!state.attempt.finished&&state.page==='quiz'){
-        toast('Tab switch detected! Your assessment was automatically submitted.');
-        if(state.attempt.mode==='mcq')submitExam().catch(showError);
-        else timedSubmit(null,'Guessing').catch(showError);
+        tabSwitchTimer=setTimeout(()=>{
+            if(!isUnloading&&document.hidden&&state.account?.role==='student'&&state.attempt&&!state.attempt.finished&&state.page==='quiz'){
+                toast('Tab switch detected! Your assessment was automatically submitted.');
+                if(state.attempt.mode==='mcq')submitExam().catch(showError);
+                else timedSubmit(null,'Guessing').catch(showError);
+            }
+        },1000);
     }
 });
 ['copy','cut','paste','contextmenu'].forEach(evt=>{

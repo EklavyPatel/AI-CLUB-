@@ -10,3 +10,7 @@ venv/
 .vscode/
 artifacts/
 .vercel/
+.vercel
+.env*
+.wrangler/
+cloudflare/.wrangler/
